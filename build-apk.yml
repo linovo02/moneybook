@@ -1,0 +1,83 @@
+name: 编译 APK
+
+# 什么时候自动编译：
+#   1. 往 main 分支推代码（就是你在网页上"提交更改"）
+#   2. 也可以手动点按钮触发
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+# 需要写权限：用来保存签名密钥、发布 APK 下载链接
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 1. 拉取代码
+        uses: actions/checkout@v4
+
+      - name: 2. 安装 JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: 3. 安装 Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      # 固定的签名密钥 = 以后出新版本可以直接覆盖安装，账目数据不会丢。
+      # 只在第一次运行时生成，之后一直复用仓库里那一个。
+      - name: 4. 准备固定签名密钥（只需一次）
+        continue-on-error: true
+        run: |
+          if [ -f android/keystore.jks ]; then
+            echo "签名密钥已存在，跳过生成"
+            exit 0
+          fi
+          keytool -genkeypair -v \
+            -keystore android/keystore.jks \
+            -alias moneybook \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass moneybook123 -keypass moneybook123 \
+            -dname "CN=moneybook, O=xiaolin, C=CN"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add android/keystore.jks
+          git commit -m "生成固定签名密钥（只需一次）[skip ci]"
+          git push
+
+      - name: 5. 把网页版装进 APK 的 assets
+        run: |
+          set -e
+          mkdir -p android/app/src/main/assets
+          cp moneybook/index.html           android/app/src/main/assets/
+          cp moneybook/manifest.webmanifest android/app/src/main/assets/
+          cp moneybook/sw.js                android/app/src/main/assets/
+          mkdir -p android/app/src/main/res/mipmap-xxxhdpi
+          cp moneybook/icon-192.png android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+          echo "sdk.dir=$ANDROID_HOME" > android/local.properties
+          echo "--- assets 内容 ---"
+          ls -la android/app/src/main/assets/
+
+      - name: 6. 编译 APK
+        run: gradle -p android assembleDebug --no-daemon --stacktrace
+
+      - name: 7. 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: moneybook-apk
+          path: android/app/build/outputs/apk/debug/*.apk
+
+      - name: 8. 发布 Release（手机点链接就能直接下载安装）
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.1.${{ github.run_number }}
+          name: 记账本 v0.1.${{ github.run_number }}
+          body: 云端自动编译的测试版 APK，手机上点下面那个 apk 文件即可下载安装。
+          files: android/app/build/outputs/apk/debug/*.apk
