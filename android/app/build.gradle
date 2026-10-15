@@ -2,6 +2,13 @@ plugins {
     id 'com.android.application'
 }
 
+// 版本号先算好、再传进去。
+// ⚠️ 不能写成 versionCode (表达式).intValue()：
+//    Groovy 会理解成"先调 versionCode(...)，再对它的返回值调 intValue()"，
+//    而 versionCode 返回 void，会直接抛错（这个坑已经让云端编译失败过一次）。
+def buildVersionCode = (System.currentTimeMillis() / 1000L).intValue()
+def buildVersionName = System.getenv("VERSION_NAME") ?: "0.1"
+
 android {
     namespace 'com.xiaolin.moneybook'
     compileSdk 34
@@ -10,11 +17,11 @@ android {
         applicationId "com.xiaolin.moneybook"
         minSdk 24              // Android 7.0，覆盖绝大多数在用手机
         targetSdk 34
-        // 用"当前时间戳（秒）"当版本号：每次编译都严格比上一版大，
+        // 用"当前时间戳（秒）"当版本号：每次编译都比上一版大，
         // 安卓才允许"覆盖安装"并保留账目数据 —— 这是升级不丢数据的前提。
         // 秒级时间戳上限 2100000000，够用到 2036 年。
-        versionCode (System.currentTimeMillis() / 1000L).intValue()
-        versionName (System.getenv("VERSION_NAME") ?: "0.1")
+        versionCode buildVersionCode
+        versionName buildVersionName
     }
 
     // 固定签名：云端第一次编译时生成并提交到仓库，之后每次都用它。
