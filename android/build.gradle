@@ -1,0 +1,4 @@
+// 只声明插件版本，不在这里应用 —— 真正应用在 app/build.gradle 里
+plugins {
+    id 'com.android.application' version '8.5.2' apply false
+}

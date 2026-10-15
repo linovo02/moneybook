@@ -1,0 +1,58 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.xiaolin.moneybook'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.xiaolin.moneybook"
+        minSdk 24              // Android 7.0，覆盖绝大多数在用手机
+        targetSdk 34
+        versionCode 1
+        versionName "0.1"
+    }
+
+    // 固定签名：云端第一次编译时生成并提交到仓库，之后每次都用它。
+    // 这样出新版本可以直接覆盖安装，账目数据不会丢。
+    signingConfigs {
+        fixed {
+            def ks = file('../keystore.jks')
+            if (ks.exists()) {
+                storeFile ks
+                storePassword 'moneybook123'
+                keyAlias 'moneybook'
+                keyPassword 'moneybook123'
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            // 自用调试版：不混淆，方便看崩溃日志
+            minifyEnabled false
+            // 密钥还没生成出来时，回退到系统默认调试签名，保证编译不中断
+            if (file('../keystore.jks').exists()) {
+                signingConfig signingConfigs.fixed
+            }
+        }
+        release {
+            minifyEnabled false
+            if (file('../keystore.jks').exists()) {
+                signingConfig signingConfigs.fixed
+            }
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    // 这是刻意不引任何第三方库的：依赖越少，云端编译失败的概率越低
+}
+
+dependencies {
+    // 故意留空。WebView 是系统自带的，不需要 androidx 或任何库。
+}
