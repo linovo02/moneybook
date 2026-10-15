@@ -5,13 +5,19 @@
       注意这里【没有】申请任何权限。
       没有网络权限 = 这个 App 从系统层面就不可能把你的账目传出去。
       以后加「通知使用权」时，它会以 service 的形式声明，仍然不需要网络权限。
+
+      allowBackup="false"：禁止系统把 App 数据备份到云（华为云/小米云/Google 云）。
+      代价是换手机不能自动搬家，需要用 App 里的「导出备份 / 导入备份」手动迁移。
+      对隐私优先的应用来说，这个代价值得。
     -->
 
     <application
         android:label="记账本"
         android:icon="@mipmap/ic_launcher"
         android:theme="@android:style/Theme.Material.Light.NoActionBar"
-        android:hardwareAccelerated="true">
+        android:hardwareAccelerated="true"
+        android:allowBackup="false"
+        android:fullBackupContent="false">
 
         <activity
             android:name=".MainActivity"

@@ -10,8 +10,11 @@ android {
         applicationId "com.xiaolin.moneybook"
         minSdk 24              // Android 7.0，覆盖绝大多数在用手机
         targetSdk 34
-        versionCode 1
-        versionName "0.1"
+        // 用"当前时间戳（秒）"当版本号：每次编译都严格比上一版大，
+        // 安卓才允许"覆盖安装"并保留账目数据 —— 这是升级不丢数据的前提。
+        // 秒级时间戳上限 2100000000，够用到 2036 年。
+        versionCode (System.currentTimeMillis() / 1000L).intValue()
+        versionName (System.getenv("VERSION_NAME") ?: "0.1")
     }
 
     // 固定签名：云端第一次编译时生成并提交到仓库，之后每次都用它。
