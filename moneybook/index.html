@@ -1099,28 +1099,26 @@
     toast('已清空');
   });
 
-  /* ---------- 开场动画 ---------- */
-  var INTRO_KEY = 'xiaolin_intro_v1';
-
+  /* ---------- 开场动画（每次打开都播） ---------- */
   function runIntro() {
     var el = $('intro');
     if (!el) return;
 
-    // 想重看动画时，在网址后面加 ?intro=1
-    var force = false;
-    try {
-      force = typeof location !== 'undefined' && /[?&]intro=1/.test(location.search);
-    } catch (e) { force = false; }
+    var hidden = false;
+    function hide() {
+      if (hidden) return;
+      hidden = true;
+      el.classList.add('gone');
+      // 淡出本身 0.7 秒，结束后彻底移出显示
+      window.setTimeout(function () { el.style.display = 'none'; }, 750);
+    }
 
-    var seen = false;
-    try { seen = window.localStorage.getItem(INTRO_KEY) === '1'; } catch (e) { seen = false; }
+    // 动画本身约 3.7 秒，再停一下让人把字看完，然后自动淡出
+    window.setTimeout(hide, 4600);
 
-    if (seen && !force) { el.style.display = 'none'; return; }
-    try { window.localStorage.setItem(INTRO_KEY, '1'); } catch (e) {}
-
-    // 动画本身约 3.7 秒，之后停住 0.9 秒让人把字看完，再淡出
-    window.setTimeout(function () { el.classList.add('gone'); }, 4600);
-    window.setTimeout(function () { el.style.display = 'none'; }, 5500);
+    // 不想等的：点一下屏幕立刻跳过。
+    // 每次都播的动画，必须留一个"跳过"的出口，否则会变成每天都要交的过路费。
+    el.addEventListener('click', hide);
   }
 
   /* ---------- 启动 ---------- */

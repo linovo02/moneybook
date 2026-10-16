@@ -1,8 +1,12 @@
 package com.xiaolin.moneybook;
 
 import android.app.Activity;
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.view.KeyEvent;
+import android.webkit.ValueCallback;
+import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -11,7 +15,7 @@ import android.webkit.WebViewClient;
  * 一个最小的 WebView 外壳。
  *
  * 思路：界面、统计、账单导入这些逻辑我们已经在 moneybook/index.html 里写好了，
- * 全部经过 69 项自动化测试。所以这里不重写任何业务逻辑，只做一件事：
+ * 全部经过自动化测试。所以这里不重写任何业务逻辑，只做一件事：
  * 把这个网页当成 App 的主界面加载进来。
  *
  * 好处是「一份代码，两个形态」——同一个 index.html 既是网页版，也是 APK 的界面。
@@ -19,7 +23,13 @@ import android.webkit.WebViewClient;
  */
 public class MainActivity extends Activity {
 
+    /** 请求码：选文件 */
+    private static final int REQ_PICK_FILE = 1001;
+
     private WebView web;
+
+    /** 网页正在等我们选完文件，把结果还给它 */
+    private ValueCallback<Uri[]> pendingFileCallback;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -41,6 +51,42 @@ public class MainActivity extends Activity {
         // 让页面里的链接留在 App 内，不要跳出去开浏览器
         web.setWebViewClient(new WebViewClient());
 
+        // ============================================================
+        // 非常重要：没有这段，网页里的 <input type="file"> 就是哑巴按钮。
+        // 「导入备份」和「导入微信/支付宝账单」都靠 <input type="file"> 选文件，
+        // 缺了它，这两个功能点下去一点反应都没有。
+        //
+        // 流程：网页发起选文件请求 → 系统回调 onShowFileChooser →
+        //       我们拉起安卓的「文件选择器」→ 用户选完 →
+        //       在 onActivityResult 里把结果交还给网页。
+        // ============================================================
+        web.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onShowFileChooser(WebView view,
+                                             ValueCallback<Uri[]> callback,
+                                             WebChromeClient.FileChooserParams params) {
+                // 上一次还没还回去的，先作废，避免回调一直挂着
+                if (pendingFileCallback != null) {
+                    pendingFileCallback.onReceiveValue(null);
+                }
+                pendingFileCallback = callback;
+
+                Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+                intent.addCategory(Intent.CATEGORY_OPENABLE);
+                // 用 */* 而不是网页里写的 accept：
+                // 各家手机对 csv / json 的 MIME 识别不一致，写死了会选不中文件
+                intent.setType("*/*");
+
+                try {
+                    startActivityForResult(Intent.createChooser(intent, "选择文件"), REQ_PICK_FILE);
+                    return true;
+                } catch (Exception e) {
+                    pendingFileCallback = null;
+                    return false;
+                }
+            }
+        });
+
         setContentView(web);
 
         if (savedInstanceState == null) {
@@ -48,6 +94,26 @@ public class MainActivity extends Activity {
         } else {
             web.restoreState(savedInstanceState);
         }
+    }
+
+    /** 文件选择器回来了：把选中的文件交还给网页 */
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == REQ_PICK_FILE) {
+            Uri[] result = null;
+            if (resultCode == RESULT_OK && data != null) {
+                Uri uri = data.getData();
+                if (uri != null) {
+                    result = new Uri[]{ uri };
+                }
+            }
+            if (pendingFileCallback != null) {
+                pendingFileCallback.onReceiveValue(result);
+                pendingFileCallback = null;
+            }
+            return;
+        }
+        super.onActivityResult(requestCode, resultCode, data);
     }
 
     /** 转屏、切后台时保存页面状态，回来不会白屏 */
@@ -69,6 +135,10 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (pendingFileCallback != null) {
+            pendingFileCallback.onReceiveValue(null);
+            pendingFileCallback = null;
+        }
         if (web != null) {
             web.destroy();
             web = null;
