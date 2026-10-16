@@ -248,6 +248,27 @@
   @media (prefers-reduced-motion: reduce){
     .intro-l1,.intro-l2,.intro-line,.intro-l3{animation-duration:.01s;animation-delay:0s}
   }
+  /* ===== 改分类面板（底部弹出） ===== */
+  .sheet{
+    position:fixed;inset:0;z-index:120;background:rgba(20,22,26,.42);
+    display:none;align-items:flex-end;justify-content:center;
+  }
+  .sheet.on{display:flex}
+  .sheet-in{
+    background:var(--card);width:100%;max-width:520px;
+    border-radius:18px 18px 0 0;
+    padding:18px 16px calc(16px + env(safe-area-inset-bottom));
+    animation:sheet-up .22s cubic-bezier(.22,.61,.36,1);
+  }
+  @keyframes sheet-up{from{transform:translateY(20px);opacity:.5}to{transform:none;opacity:1}}
+  .sheet-h{font-size:16px;font-weight:700;margin-bottom:3px}
+  .sheet-sub{font-size:12.5px;color:var(--sub);margin-bottom:14px;word-break:break-all;line-height:1.5}
+  .sheet-tip{font-size:12px;color:var(--sub);margin-top:12px;line-height:1.6;min-height:17px}
+  .sheet-cancel{
+    width:100%;margin-top:12px;border:1px solid var(--line);background:#fafafb;
+    border-radius:13px;padding:13px;font-size:15px;color:var(--sub);cursor:pointer;
+  }
+  .sheet-cancel:active{background:#f2f3f6}
 </style>
 </head>
 <body>
@@ -259,6 +280,17 @@
     <div class="intro-l2">专属记账本</div>
     <div class="intro-line"></div>
     <div class="intro-l3">数据只在你手机里</div>
+  </div>
+</div>
+
+<!-- ===== 改分类面板：点明细里的记录会从底部弹出来 ===== -->
+<div id="catSheet" class="sheet">
+  <div class="sheet-in">
+    <div class="sheet-h">这笔算哪一类？</div>
+    <div class="sheet-sub" id="sheetInfo"></div>
+    <div class="cats" id="sheetCats"></div>
+    <div class="sheet-tip" id="sheetTip"></div>
+    <button class="sheet-cancel" type="button" id="sheetCancel">取消</button>
   </div>
 </div>
 
@@ -347,7 +379,10 @@
         <button type="button" id="btnImport">导入备份</button>
         <button type="button" id="btnClear" class="danger">清空全部</button>
       </div>
-      <div class="foot" id="dataTip">换手机、或清理浏览器数据之前，先「导出备份」存到微信/网盘；重装之后用「导入备份」恢复。</div>
+      <div class="tools" style="margin-top:8px">
+        <button type="button" id="btnRecat">按最新规则重算历史账单</button>
+      </div>
+      <div class="foot" id="dataTip">换手机、或清理浏览器数据之前，先「导出备份」存到微信/网盘；重装之后用「导入备份」恢复。以前导入的记录分类偏了，点上面按钮重算一遍（你手动改过的会自动保留）。</div>
       <input type="file" id="fileImport" accept="application/json,.json" style="display:none">
       <input type="file" id="fileBill" accept=".csv,text/csv,text/plain" style="display:none">
     </div>
@@ -449,6 +484,7 @@
         amount: amt,
         date: /^\d{4}-\d{2}-\d{2}$/.test(r.date) ? r.date : todayStr(),
         note: typeof r.note === 'string' ? r.note.slice(0, 30) : '',
+        merchant: typeof r.merchant === 'string' ? r.merchant.slice(0, 60) : '',
         created: Number(r.created) || 0,
         seq: Number(r.seq) || 0
       });
@@ -538,7 +574,7 @@
     var sub = showDate ? r.date.slice(5).replace('-', '/') + ' ' : '';
     sub += t.name + ' · ' + r.category;
     if (r.note) sub += ' · ' + r.note;
-    return '<div class="item">' +
+    return '<div class="item" data-edit="' + esc(r.id) + '">' +
       '<div class="ic">' + ico + '</div>' +
       '<div class="mid"><div class="t1">' + esc(r.category) + (r.note ? ' <span style="font-weight:400;color:#8b8f99">' + esc(r.note) + '</span>' : '') + '</div>' +
       '<div class="t2">' + esc(sub) + '</div></div>' +
@@ -740,14 +776,15 @@
     renderAll();
     toast('已删除');
   }
-  $('recentList').addEventListener('click', function (e) {
-    var btn = e.target.closest('button[data-del]');
-    if (btn) onDelete(btn.getAttribute('data-del'));
-  });
-  $('monthList').addEventListener('click', function (e) {
-    var btn = e.target.closest('button[data-del]');
-    if (btn) onDelete(btn.getAttribute('data-del'));
-  });
+  /* 列表点击：点删除按钮就删，点其它任何地方就打开"改分类"面板 */
+  function onListClick(e) {
+    var del = e.target.closest('button[data-del]');
+    if (del) { onDelete(del.getAttribute('data-del')); return; }
+    var row = e.target.closest('div[data-edit]');
+    if (row) openCatSheet(row.getAttribute('data-edit'));
+  }
+  $('recentList').addEventListener('click', onListClick);
+  $('monthList').addEventListener('click', onListClick);
 
   /* ---------- 事件：统计类 ---------- */
   $('month').addEventListener('change', function () {
@@ -783,34 +820,166 @@
     }
   });
 
+  /* ========== 分类学习：你改过一次，它下次就记住了 ==========
+     为什么需要它：账单里的商家名经常是公司全称（如「北京三快在线科技有限公司」），
+     靠内置关键词永远覆盖不全。所以让你改一次，App 记住这个商家，
+     下次凡是它出现就自动归到你选的那一类 —— 越用越准，而且全在本机。 */
+  var LEARN_KEY = 'xiaolin_learn_v1';
+
+  function loadLearned() {
+    try {
+      var raw = window.localStorage.getItem(LEARN_KEY);
+      if (!raw) return {};
+      var o = JSON.parse(raw);
+      if (!o || typeof o !== 'object' || Array.isArray(o)) return {};
+      return o;
+    } catch (e) { return {}; }
+  }
+
+  var learned = loadLearned();
+
+  function saveLearned() {
+    try { window.localStorage.setItem(LEARN_KEY, JSON.stringify(learned)); } catch (e) {}
+  }
+
+  function merchantKey(name) {
+    return trimCell(name).slice(0, 40);
+  }
+
+  /* 查学习结果：先精确匹配，再"包含匹配"
+     （同一个商家在账单里可能带后缀，比如「肯德基(万达店)」） */
+  function classifyLearned(name) {
+    var m = merchantKey(name);
+    if (!m) return '';
+    if (Object.prototype.hasOwnProperty.call(learned, m)) return learned[m];
+    for (var k in learned) {
+      if (Object.prototype.hasOwnProperty.call(learned, k) && k.length >= 2 && m.indexOf(k) >= 0) {
+        return learned[k];
+      }
+    }
+    return '';
+  }
+
+  function learnMerchant(name, category) {
+    var m = merchantKey(name);
+    if (!m) return '';
+    learned[m] = category;
+    saveLearned();
+    return m;
+  }
+
+  /* ---------- 改分类面板 ---------- */
+  var editingId = null;
+
+  function catsForType(t) {
+    if (t === 'expense') return EXPENSE_CATS;
+    if (t === 'saving') return SAVING_CATS;
+    return INCOME_CATS;
+  }
+
+  function findRecord(id) {
+    for (var i = 0; i < state.records.length; i++) {
+      if (state.records[i].id === id) return state.records[i];
+    }
+    return null;
+  }
+
+  function openCatSheet(id) {
+    var rec = findRecord(id);
+    if (!rec) return;
+    editingId = id;
+
+    var t = TYPES[rec.type] || TYPES.expense;
+    $('sheetInfo').textContent = rec.date + ' · ' + t.name + ' ¥' + money(rec.amount) +
+      (rec.merchant ? ' · ' + rec.merchant : '');
+
+    var list = catsForType(rec.type), i, html = '';
+    for (i = 0; i < list.length; i++) {
+      html += '<button type="button" class="cat' + (list[i].name === rec.category ? ' on' : '') +
+              '" data-sheet-cat="' + esc(list[i].name) + '">' +
+              '<span class="ico">' + list[i].ico + '</span>' + esc(list[i].name) + '</button>';
+    }
+    $('sheetCats').innerHTML = html;
+
+    $('sheetTip').textContent = rec.merchant
+      ? ('改完之后，「' + rec.merchant + '」这个商家以后的记录会自动归到这一类')
+      : '改完之后下次导入会更准';
+    $('catSheet').classList.add('on');
+  }
+
+  function closeCatSheet() {
+    editingId = null;
+    $('catSheet').classList.remove('on');
+  }
+
+  $('catSheet').addEventListener('click', function (e) {
+    if (e.target === $('catSheet')) { closeCatSheet(); return; }   // 点灰色背景关闭
+    var btn = e.target.closest('button[data-sheet-cat]');
+    if (!btn) return;
+
+    var rec = findRecord(editingId);
+    if (!rec) { closeCatSheet(); return; }
+
+    var cat = btn.getAttribute('data-sheet-cat');
+    rec.category = cat;
+
+    // 只对支出学习：收入/存钱就那么几个分类，学了没意义
+    var remembered = '';
+    if (rec.type === 'expense' && rec.merchant) {
+      remembered = learnMerchant(rec.merchant, cat);
+    }
+
+    save();
+    closeCatSheet();
+    renderAll();
+    toast(remembered
+      ? ('已改成「' + cat + '」，以后「' + remembered + '」自动归这类')
+      : ('已改成「' + cat + '」'));
+  });
+
+  $('sheetCancel').addEventListener('click', closeCatSheet);
+
   /* ========== 导入微信 / 支付宝账单 ========== */
 
   /* 商家关键词 → 分类。从上往下匹配，先命中先用。
      原则：越容易失控的花钱方式放越前面，宁可多报到「充游戏」，也别让它悄悄溜走。 */
   var BILL_RULES = [
+    // 游戏充值放最前面：这类钱最容易悄悄溜走，宁可多报也别漏
     ['充游戏', ['腾讯游戏', '王者荣耀', '和平精英', '英雄联盟', '网易游戏', '米哈游', '原神',
-      '崩坏', '明日方舟', '叠纸', '鹰角', '莉莉丝', '三七互娱', '心动网络', '点券', '充值',
+      '崩坏', '明日方舟', '叠纸', '鹰角', '莉莉丝', '三七互娱', '心动网络', '完美世界',
+      '巨人网络', '盛趣', '西山居', '多益', '游卡', '点券', '钻石', '金币', '元宝',
+      '腾讯计算机', '网易(杭州)', '网易（杭州）', '哔哩哔哩', 'bilibili',
       'steam', 'google play', 'app store', 'apple.com/bill', '心悦', '游戏']],
-    ['吃饭', ['美团', '饿了么', '肯德基', 'kfc', '麦当劳', '星巴克', '瑞幸', 'luckin', '蜜雪',
-      '喜茶', '奈雪', '茶百道', '古茗', '沪上阿姨', 'coco', '一点点', '库迪', '汉堡王', '必胜客',
-      '海底捞', '华莱士', '塔斯汀', '真功夫', '老乡鸡', '沙县', '米线', '面馆', '火锅', '烧烤',
-      '烤肉', '早餐', '餐饮', '餐厅', '饭店', '小吃', 'food', '外卖']],
+    ['吃饭', ['美团', '三快在线', '饿了么', '拉扎斯', '肯德基', 'kfc', '麦当劳', '金拱门',
+      '百胜', '星巴克', '瑞幸', 'luckin', '蜜雪', '喜茶', '奈雪', '茶百道', '古茗',
+      '沪上阿姨', 'coco', '一点点', '库迪', '汉堡王', '必胜客', '海底捞', '华莱士', '塔斯汀',
+      '真功夫', '老乡鸡', '沙县', '米线', '面馆', '火锅', '烧烤', '烤肉', '早餐', '快餐',
+      '餐饮', '餐厅', '饭店', '小吃', '食堂', '食品', '饮食', 'food', '外卖']],
     ['零食', ['零食', '良品铺子', '三只松鼠', '百草味', '来伊份', '罗森', '全家', '7-eleven',
-      '711', '美宜佳', '便利', '薯片', '辣条']],
-    ['水果', ['水果', '鲜果', '果业', '百果园', '果多美', '榴莲', '车厘子', '草莓', '西瓜']],
+      '711', '美宜佳', '便利', '薯片', '辣条', '糖果', '坚果']],
+    ['水果', ['水果', '鲜果', '果业', '百果园', '果多美', '榴莲', '车厘子', '草莓', '西瓜',
+      '生鲜', '菜市场', '果蔬']],
     ['买衣服', ['优衣库', 'uniqlo', 'zara', 'h&m', '耐克', 'nike', '阿迪', 'adidas',
-      '李宁', '安踏', '波司登', '海澜之家', '太平鸟', '森马', '得物', '唯品会', '服饰', '服装',
-      '内衣', '运动鞋']],
+      '李宁', '安踏', '波司登', '海澜之家', '太平鸟', '森马', '得物', '唯品会', 'shein',
+      'gap', '服饰', '服装', '内衣', '运动鞋', '鞋业', '箱包']],
     ['日用', ['超市', '永辉', '大润发', '沃尔玛', '华润万家', '家乐福', '物美', '盒马', '山姆',
-      '屈臣氏', '名创优品', 'miniso', '日用', '洗护', '纸巾', '药房', '药店', '大药房']],
+      '屈臣氏', '名创优品', 'miniso', '天猫超市', '京东超市', '日用', '洗护', '纸巾',
+      '药房', '药店', '大药房', '医药', '诊所']],
     ['交通', ['滴滴', '高德', '曹操', 't3出行', '花小猪', '地铁', '公交', '轨道交通', '一卡通',
-      '12306', '铁路', '航空', '机票', '加油', '中石化', '中石油', '壳牌', '停车', '高速',
-      'etc', '哈啰', '青桔', '单车', '打车', '出行']],
+      '12306', '中铁', '铁路', '航旅', '航空', '机票', '加油', '中石化', '中石油', '壳牌',
+      '石油', '停车', '高速', 'etc', '哈啰', '青桔', '单车', '打车', '出行']],
+    // 房租放最后：里面有「中国移动／话费」这类词，
+    // 而「充值」不放进游戏那一组，就是为了避免"话费充值"被误判成游戏充值
     ['房租', ['房租', '租金', '物业', '水费', '电费', '燃气', '暖气', '宽带', '中国移动',
-      '中国联通', '中国电信', '话费', '国家电网']]
+      '中国联通', '中国电信', '话费', '国家电网', '供电', '水务']]
   ];
 
   function classifyBill(counterparty, goods) {
+    // 1) 先查"你以前改过的" —— 学习结果优先，它最贴近你的真实习惯
+    var byLearn = classifyLearned(counterparty);
+    if (byLearn) return byLearn;
+
+    // 2) 再用内置关键词
     var text = (String(counterparty || '') + ' ' + String(goods || '')).toLowerCase();
     for (var i = 0; i < BILL_RULES.length; i++) {
       var kws = BILL_RULES[i][1];
@@ -969,6 +1138,7 @@
         amount: Math.round(amt * 100) / 100,
         date: date,
         note: note.slice(0, 30),
+        merchant: party.slice(0, 60),
         created: Date.now(),
         seq: 0
       });
@@ -1042,6 +1212,41 @@
     };
     if (reader.readAsArrayBuffer) reader.readAsArrayBuffer(f);
     else reader.readAsText(f);
+  });
+
+  /* ---------- 用最新规则重算历史账单的分类 ----------
+     为什么需要它：关键词库变强了、你也教过几个商家，但老记录不会自己变。
+     点一下按最新规则重算。
+     你手动改过的会自动保留 —— 因为改的时候已经"学会"了，重算用的就是同一条学习规则。 */
+  $('btnRecat').addEventListener('click', function () {
+    var targets = [], i, r;
+    for (i = 0; i < state.records.length; i++) {
+      r = state.records[i];
+      // 只重算"从账单来的"记录（有商家名）。
+      // 手动记的没有商家名，那个分类是你亲手选的，机器不该覆盖。
+      if (r.type === 'expense' && r.merchant) targets.push(r);
+    }
+    if (!targets.length) { toast('还没有从账单导入的支出记录'); return; }
+
+    var changed = [], want;
+    for (i = 0; i < targets.length; i++) {
+      // 第二个参数传备注：备注里就是「商家 · 商品」，商品名也参与关键词匹配
+      want = classifyBill(targets[i].merchant, targets[i].note);
+      if (want !== targets[i].category) changed.push({ rec: targets[i], to: want });
+    }
+    if (!changed.length) { toast('这 ' + targets.length + ' 笔的分类已经是最新的了'); return; }
+
+    var show = [], n = changed.length < 5 ? changed.length : 5;
+    for (i = 0; i < n; i++) show.push('  ' + changed[i].rec.merchant + ' → ' + changed[i].to);
+
+    if (!window.confirm('按最新规则重算 ' + targets.length + ' 笔账单记录，其中 ' + changed.length + ' 笔会变：\n\n' +
+        show.join('\n') + (changed.length > n ? '\n  …' : '') +
+        '\n\n（你自己手动改过的会自动保留）')) return;
+
+    for (i = 0; i < changed.length; i++) changed[i].rec.category = changed[i].to;
+    save();
+    renderAll();
+    toast('重算完成：修正了 ' + changed.length + ' 笔');
   });
 
   /* ---------- 导入备份 ---------- */
