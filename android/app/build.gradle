@@ -7,7 +7,9 @@ plugins {
 //    Groovy 会理解成"先调 versionCode(...)，再对它的返回值调 intValue()"，
 //    而 versionCode 返回 void，会直接抛错（这个坑已经让云端编译失败过一次）。
 def buildVersionCode = (System.currentTimeMillis() / 1000L).intValue()
-def buildVersionName = System.getenv("VERSION_NAME") ?: "0.1"
+// 版本名 = 编译时间，例如 0.1.1017.0740 表示 10月17日 07:40 编译的。
+// 以前写死成 "0.1"，每次装完都看不出是不是新版 —— 这是自己给自己挖的坑。
+def buildVersionName = '0.1.' + new java.text.SimpleDateFormat('MMdd.HHmm').format(new java.util.Date())
 
 android {
     namespace 'com.xiaolin.moneybook'
