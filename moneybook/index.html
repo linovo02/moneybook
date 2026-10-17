@@ -185,7 +185,7 @@
   /* 底部导航 */
   .tabbar{
     position:fixed;bottom:0;left:0;right:0;z-index:20;
-    display:grid;grid-template-columns:repeat(2,1fr);
+    display:grid;grid-template-columns:repeat(3,1fr);
     background:rgba(255,255,255,.96);
     backdrop-filter:blur(10px);
     border-top:1px solid var(--line);
@@ -270,16 +270,54 @@
   }
   .sheet-cancel:active{background:#f2f3f6}
   /* ===== 概览页 ===== */
-  .hero{
-    background:var(--card);border-radius:var(--radius);
-    padding:22px 16px 20px;margin-bottom:12px;text-align:center;
+  /* 月份切换 */
+  .month-nav{
+    display:flex;align-items:center;justify-content:center;gap:14px;
+    padding:2px 0 12px;
   }
-  .hero-k{font-size:13px;color:var(--sub)}
-  .hero-v{font-size:34px;font-weight:700;letter-spacing:-.01em;margin-top:6px;word-break:break-all}
-  .hero-d{font-size:12.5px;color:var(--sub);margin-top:9px}
-  .hero-d b{font-weight:700}
-  .hero-d b.up{color:var(--red)}
-  .hero-d b.down{color:var(--green)}
+  .month-nav button{
+    border:0;background:transparent;color:var(--sub);font-size:22px;
+    width:36px;height:36px;line-height:1;cursor:pointer;border-radius:10px;
+  }
+  .month-nav button:active{background:#ececf0}
+  .month-nav span{font-size:15px;font-weight:600;min-width:112px;text-align:center}
+
+  /* 主卡：本月支出 */
+  .hcard{
+    background:var(--card);border-radius:var(--radius);
+    padding:20px 16px 16px;margin-bottom:12px;text-align:center;
+    border:1px solid var(--line);
+  }
+  .hcard-k{font-size:13px;color:var(--sub)}
+  .hcard-v{font-size:36px;font-weight:700;letter-spacing:-.02em;margin-top:6px;word-break:break-all}
+  .hcard-cmp{font-size:13px;margin-top:10px;color:var(--sub);line-height:1.7}
+  .hcard-cmp b{font-weight:700}
+  .hcard-cmp b.up{color:var(--red)}
+  .hcard-cmp b.down{color:var(--green)}
+  .cmp-ref{
+    display:block;width:100%;margin-top:5px;border:0;background:transparent;
+    color:var(--sub);font-size:12px;padding:2px 0;cursor:pointer;
+  }
+  .cmp-ref:active{opacity:.6}
+  .cmp-tag{
+    display:inline-block;margin-left:6px;font-size:11px;padding:2px 7px;
+    border-radius:99px;background:#f2f3f6;color:var(--sub);
+  }
+  .cmp-tag.good{background:#e8f7f1;color:var(--green)}
+  .cmp-none{color:var(--sub)}
+  .hcard-pace{font-size:12.5px;color:var(--sub);margin-top:7px;min-height:18px}
+
+  .hcard-sums{
+    display:grid;grid-template-columns:repeat(3,1fr);
+    margin-top:16px;padding-top:14px;border-top:1px solid var(--line);
+  }
+  .hsum{text-align:center;border-right:1px solid var(--line)}
+  .hsum:last-child{border-right:0}
+  .hsum .k{font-size:11.5px;color:var(--sub)}
+  .hsum .v{font-size:16px;font-weight:700;margin-top:4px;word-break:break-all}
+  .hsum .v.income{color:var(--green)}
+  .hsum .v.saving{color:var(--blue)}
+
   .tap-hint{font-weight:400;color:var(--sub);font-size:12px}
 
   .goal-row{display:flex;justify-content:space-between;font-size:13px;color:var(--sub);margin-bottom:9px}
@@ -297,16 +335,8 @@
   }
   .goal-set-row button:active{background:#f2f3f6}
 
-  .fab{
-    position:fixed;z-index:40;
-    right:calc(50% - 240px + 16px);
-    bottom:calc(84px + env(safe-area-inset-bottom));
-    border:0;border-radius:99px;padding:14px 22px;
-    background:var(--green);color:#fff;font-size:15px;font-weight:700;cursor:pointer;
-    box-shadow:0 8px 22px rgba(10,160,110,.32);
-  }
-  .fab:active{transform:scale(.97)}
-  @media (max-width:560px){ .fab{right:16px} }
+  /* 概览页里的空状态提示 */
+  .goal-empty-line{font-size:13px;color:var(--sub)}
   /* ===== 通知调试面板 ===== */
   .sheet-full .sheet-in{ height:88vh; max-height:88vh; display:flex; flex-direction:column; }
   .noti-actions{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
@@ -323,6 +353,26 @@
   .noti-b{font-size:13px;color:#3c4048;white-space:pre-wrap;word-break:break-all;margin-top:3px}
   .noti-empty{text-align:center;color:var(--sub);font-size:13.5px;padding:34px 10px;line-height:1.9}
   .noti-tip{font-size:11.5px;color:var(--sub);line-height:1.6}
+  /* 钱去哪了 */
+  .topcat{margin-bottom:12px}
+  .topcat:last-child{margin-bottom:2px}
+  .topcat-h{display:flex;justify-content:space-between;font-size:13.5px;margin-bottom:6px}
+  .topcat-n{font-weight:600}
+  .topcat-a{color:var(--sub);font-size:12.5px}
+
+  /* 纯文字按钮 */
+  .linkbtn{
+    display:block;width:100%;margin-top:10px;border:0;background:transparent;
+    color:var(--blue);font-size:13px;padding:8px;cursor:pointer;
+  }
+  .linkbtn:active{opacity:.6}
+
+  /* 存钱目标：没设目标时只占一行 */
+  .goal-line{
+    display:block;width:100%;text-align:left;border:0;background:transparent;
+    color:var(--sub);font-size:13.5px;padding:2px 0 8px;cursor:pointer;
+  }
+  .goal-line:active{color:var(--blue)}
 </style>
 </head>
 <body>
@@ -408,13 +458,24 @@
        而不是先看到一个等填的空表格。 -->
   <section class="view on" id="view-home">
 
-    <div class="hero">
-      <div class="hero-k">本月支出</div>
-      <div class="hero-v" id="heroNum">¥0.00</div>
-      <div class="hero-d" id="heroCmp"></div>
+    <div class="month-nav">
+      <button type="button" id="homePrev" aria-label="上个月">‹</button>
+      <span id="homeMonthLabel"></span>
+      <button type="button" id="homeNext" aria-label="下个月">›</button>
     </div>
 
-    <div class="sums" id="homeSums"></div>
+    <div class="hcard">
+      <div class="hcard-k">本月支出</div>
+      <div class="hcard-v" id="heroNum">¥0.00</div>
+      <div class="hcard-cmp" id="heroCmp"></div>
+      <div class="hcard-pace" id="heroPace"></div>
+      <div class="hcard-sums" id="homeSums"></div>
+    </div>
+
+    <div class="card">
+      <div class="listhead"><h2>钱去哪了</h2><span class="sub" id="topTip"></span></div>
+      <div id="topCats"></div>
+    </div>
 
     <div class="card">
       <div class="listhead"><h2>存钱目标</h2><span class="sub" id="goalTip"></span></div>
@@ -427,9 +488,8 @@
         <span class="sub" id="recentSub"></span>
       </div>
       <div id="recentList"></div>
+      <button type="button" class="linkbtn" id="btnAllRec">查看全部 →</button>
     </div>
-
-    <button class="fab" type="button" id="fabAdd">＋ 记一笔</button>
 
   </section>
 
@@ -544,7 +604,8 @@
     type: 'expense',
     category: '吃饭',
     month: '',
-    tab: 'home'
+    tab: 'home',
+    homeMonth: ''      // 概览页正在看的月份，空 = 本月
   };
   // 记录顺序号：同一毫秒内连记两笔时也能稳定排序（值越大越新）
   var seq = (function () {
@@ -714,74 +775,144 @@
 
   var savingGoal = loadGoal();
 
-  function renderGoal(m, saved) {
-    $('goalTip').textContent = monthLabel(m);
+  var goalEditing = false;
 
-    var html = '';
-    if (savingGoal > 0) {
+  /* 某个月有多少天 */
+  function daysInMonth(m) {
+    var y = Number(m.slice(0, 4)), mo = Number(m.slice(5, 7));
+    return new Date(y, mo, 0).getDate();
+  }
+
+  /* 花钱节奏：过了多少天、日均多少、照这速度月底大概多少。
+     这是"我还能不能花"的预判，比单纯的总数有用得多。 */
+  function paceText(m, exp) {
+    var total = daysInMonth(m);
+    var cur = thisMonth();
+    var days, tail;
+
+    if (m === cur) {
+      days = Number(todayStr().slice(8, 10));
+      tail = days > 0 ? (' · 照这速度月底约 ¥' + money(exp / days * total)) : '';
+    } else if (m < cur) {
+      days = total;
+      tail = ' · 整月合计';
+    } else {
+      return '';
+    }
+    if (days <= 0) return '';
+    var head = (m === cur) ? ('已过 ' + days + ' 天') : ('全月 ' + total + ' 天');
+    return head + ' · 日均 ¥' + money(exp / days) + tail;
+  }
+
+  function renderGoal(m, saved) {
+    $('goalTip').textContent = (savingGoal > 0 && !goalEditing) ? monthLabel(m) : '';
+
+    // 没设目标、也不在编辑：只占一行，不浪费首页最贵的地段
+    if (!goalEditing && savingGoal <= 0) {
+      $('goalBox').innerHTML =
+        '<button type="button" class="goal-line" data-goal="edit">还没设存钱目标，去设一个 →</button>';
+      return;
+    }
+
+    // 已设目标、不在编辑：显示进度
+    if (!goalEditing) {
       var pct = saved / savingGoal * 100;
       if (pct > 100) pct = 100;
       var left = savingGoal - saved;
-      html +=
+      $('goalBox').innerHTML =
         '<div class="goal-row"><span>目标 ¥' + money(savingGoal) + '</span>' +
         '<span>已存 ¥' + money(saved) + '</span></div>' +
         '<div class="track"><div class="fill" style="width:' + pct.toFixed(1) +
-          '%;background:#3b6cf6"></div></div>' +
+          '%;background:var(--blue)"></div></div>' +
         '<div class="goal-foot">' +
           (left > 0.004
             ? ('还差 <b>¥' + money(left) + '</b>')
-            : ('🎉 目标已达成，还多存了 <b>¥' + money(-left) + '</b>')) +
+            : ('🎉 已达成，多存了 <b>¥' + money(-left) + '</b>')) +
+          ' <button type="button" class="linkbtn" style="width:auto;display:inline;margin:0;padding:4px 8px" data-goal="edit">改</button>' +
         '</div>';
-    } else {
-      html += '<div class="goal-foot" style="margin-top:0;color:var(--sub)">' +
-        '还没设目标。设一个，这里会显示进度和还差多少。</div>';
+      return;
     }
 
-    html +=
+    // 编辑状态：给输入框
+    $('goalBox').innerHTML =
       '<div class="goal-set-row">' +
         '<input type="number" inputmode="decimal" min="0" step="1" id="goalInput" placeholder="比如 1500"' +
         (savingGoal > 0 ? ' value="' + savingGoal + '"' : '') + '>' +
-        '<button type="button" data-goal="save">保存目标</button>' +
+        '<button type="button" data-goal="save">保存</button>' +
       '</div>';
-
-    $('goalBox').innerHTML = html;
   }
 
   function renderHome() {
-    var m = thisMonth();
+    var m = state.homeMonth || thisMonth();
+    state.homeMonth = m;
     var s = stats(m);
     var balance = s.inc - s.exp - s.sav;
 
+    $('homeMonthLabel').textContent = monthLabel(m);
     $('heroNum').textContent = '¥' + money(s.exp);
 
-    // 和上一个自然月对比 —— 光看一个数字没感觉，有对比才有感觉
-    var ps = stats(prevMonth(m));
+    // 和上一个月对比。必须把上月金额也显示出来，
+    // 否则"比上月少花 710 元"看起来像凭空算的，用户没法核对。
+    var pm = prevMonth(m);
+    var ps = stats(pm);
     var diff = s.exp - ps.exp;
-    if (ps.exp <= 0) {
-      $('heroCmp').textContent = '上个月没有记录，还无法对比';
-    } else if (diff > 0.004) {
-      $('heroCmp').innerHTML = '比上月多花了 <b class="up">¥' + money(diff) + '</b>';
-    } else if (diff < -0.004) {
-      $('heroCmp').innerHTML = '比上月少花了 <b class="down">¥' + money(-diff) + '</b>';
+    if (ps.exp <= 0.004) {
+      $('heroCmp').innerHTML = '<span class="cmp-none">' +
+        monthLabel(pm) + '没有记录，暂时没法对比</span>';
+    } else if (Math.abs(diff) <= 0.004) {
+      $('heroCmp').innerHTML = '<span class="cmp-none">和' + monthLabel(pm) +
+        '基本持平（都是 ¥' + money(ps.exp) + '）</span>';
     } else {
-      $('heroCmp').textContent = '和上个月基本持平';
+      var good = diff < 0;
+      var pct = (Math.abs(diff) / ps.exp * 100).toFixed(0);
+      $('heroCmp').innerHTML =
+        (good ? '<b class="down">少花 ¥' : '<b class="up">多花 ¥') +
+        money(Math.abs(diff)) + '（' + pct + '%）</b>' +
+        '<span class="cmp-tag' + (good ? ' good' : '') + '">' +
+          (good ? '控制得不错' : '注意一下') + '</span>' +
+        // 把上月金额做成可点的：点一下就翻到那个月看明细。
+        // 这样"比上月少花多少"永远可以追溯，不会像凭空算出来的。
+        '<button type="button" class="cmp-ref" data-gomonth="' + pm + '">' +
+          monthLabel(pm) + '支出 ¥' + money(ps.exp) + ' ›</button>';
     }
 
+    $('heroPace').textContent = paceText(m, s.exp);
+
     $('homeSums').innerHTML =
-      '<div class="sum"><div class="k">收入</div><div class="v income">+' + money(s.inc) + '</div></div>' +
-      '<div class="sum"><div class="k">存钱</div><div class="v saving">-' + money(s.sav) + '</div></div>' +
-      '<div class="sum"><div class="k">结余</div><div class="v ' + (balance < 0 ? 'expense' : 'income') + '">' +
+      '<div class="hsum"><div class="k">收入</div><div class="v income">+' + money(s.inc) + '</div></div>' +
+      '<div class="hsum"><div class="k">存钱</div><div class="v saving">-' + money(s.sav) + '</div></div>' +
+      '<div class="hsum"><div class="k">结余</div><div class="v">' +
         (balance < 0 ? '-' : '') + money(Math.abs(balance)) + '</div></div>';
+
+    // 钱去哪了（Top 3）—— 这是这个 App 的核心承诺，必须放首页
+    var top = s.cats.slice(0, 3);
+    $('topTip').textContent = s.cats.length > 3 ? ('共 ' + s.cats.length + ' 类') : '';
+    if (!top.length) {
+      $('topCats').innerHTML = empty('这个月还没有支出');
+    } else {
+      var max = top[0].amount, h = '', i, c;
+      for (i = 0; i < top.length; i++) {
+        c = top[i];
+        h += '<div class="topcat">' +
+          '<div class="topcat-h"><span class="topcat-n">' + c.ico + ' ' + esc(c.name) + '</span>' +
+          '<span class="topcat-a">¥' + money(c.amount) + ' · ' + c.pct.toFixed(0) + '%</span></div>' +
+          '<div class="track"><div class="fill" style="width:' +
+            (max > 0 ? (c.amount / max * 100).toFixed(1) : 0) +
+            '%;background:' + c.color + '"></div></div>' +
+          '</div>';
+      }
+      $('topCats').innerHTML = h;
+    }
 
     renderGoal(m, s.sav);
 
     var list = sortRecords(state.records.filter(function (r) { return monthOf(r.date) === m; }), false);
-    $('recentSub').textContent = monthLabel(m) + ' · 共 ' + list.length + ' 笔';
+    $('recentSub').textContent = '共 ' + list.length + ' 笔';
 
-    var show = list.slice(0, 6), html = '', i;
-    for (i = 0; i < show.length; i++) html += rowHTML(show[i], false);
-    $('recentList').innerHTML = show.length ? html
-      : empty('这个月还没有记一笔，点右下角「＋ 记一笔」开始');
+    var show = list.slice(0, 3), html = '', j;
+    for (j = 0; j < show.length; j++) html += rowHTML(show[j], false);
+    $('recentList').innerHTML = show.length ? html : empty('这个月还没有记一笔');
+    $('btnAllRec').style.display = list.length > 3 ? '' : 'none';
   }
 
   /* ---------- 渲染：统计 ---------- */
@@ -888,21 +1019,51 @@
     window.scrollTo(0, 0);
   }
 
-  /* 悬浮按钮：直接跳到记账页 */
-  $('fabAdd').addEventListener('click', function () { switchTab('add'); });
-
-  /* 存钱目标：保存 */
+  /* 存钱目标：编辑 / 保存 */
   $('goalBox').addEventListener('click', function (e) {
     var btn = e.target.closest('button[data-goal]');
     if (!btn) return;
+
+    if (btn.getAttribute('data-goal') === 'edit') {
+      goalEditing = true;
+      renderHome();
+      return;
+    }
+
     var raw = $('goalInput') ? $('goalInput').value : '';
     var n = Number(String(raw).replace(/[^\d.]/g, ''));
     if (!isFinite(n) || n <= 0) { toast('请填一个大于 0 的数字'); return; }
     savingGoal = Math.round(n * 100) / 100;
+    goalEditing = false;
     saveGoal();
     renderHome();
     toast('存钱目标已设为 ¥' + money(savingGoal));
   });
+
+  /* 概览页：点对比里的月份，直接翻到那个月 */
+  $('heroCmp').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-gomonth]');
+    if (!b) return;
+    state.homeMonth = b.getAttribute('data-gomonth');
+    renderHome();
+    window.scrollTo(0, 0);
+  });
+
+  /* 概览页：切换月份 */
+  function shiftHomeMonth(delta) {
+    var m = state.homeMonth || thisMonth();
+    var y = Number(m.slice(0, 4)), mo = Number(m.slice(5, 7)) + delta;
+    while (mo < 1) { mo += 12; y--; }
+    while (mo > 12) { mo -= 12; y++; }
+    state.homeMonth = y + '-' + pad2(mo);
+    renderHome();
+    window.scrollTo(0, 0);
+  }
+  $('homePrev').addEventListener('click', function () { shiftHomeMonth(-1); });
+  $('homeNext').addEventListener('click', function () { shiftHomeMonth(1); });
+
+  /* 概览页：查看全部明细 */
+  $('btnAllRec').addEventListener('click', function () { switchTab('stat'); });
 
   /* ---------- 事件：记账类 ---------- */
   $('seg').addEventListener('click', function (e) {
