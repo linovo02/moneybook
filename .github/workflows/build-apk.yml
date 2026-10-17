@@ -68,6 +68,14 @@ jobs:
       - name: 6. 编译 APK
         run: gradle -p android assembleDebug --no-daemon --stacktrace
 
+      # 给 APK 改名带上版本号：下载下来一眼就知道是哪一版。
+      # 之前所有 APK 都叫 app-debug.apk，完全看不出区别，害得下错版本。
+      - name: 6.5 给 APK 改名带上版本号
+        run: |
+          cd android/app/build/outputs/apk/debug
+          mv app-debug.apk "moneybook-v0.1.${{ github.run_number }}.apk"
+          ls -la
+
       - name: 7. 上传构建产物
         uses: actions/upload-artifact@v4
         with:
