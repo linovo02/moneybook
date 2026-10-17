@@ -96,7 +96,7 @@
       <li><b>没有一个第三方库</b>，没有埋点、没有广告 SDK</li>
       <li>没有账号、没有服务器，不存在"数据被上传"</li>
       <li>账目存在手机私有目录，其它 App 读不到</li>
-      <li>整个 App 只有 <b>29 KB</b>，小到装不下任何多余的东西</li>
+      <li>安装包只有 <b id="apkSizeTxt">几十 KB</b> —— 没有广告 SDK、没有埋点，所以只有这么大</li>
     </ul>
   </div>
 
@@ -142,7 +142,13 @@
       btn.href = apk.browser_download_url;
       btn.textContent = '下载最新版 ' + d.tag_name;
       note.textContent = '点上面按钮直接下载，不用在页面上找文件';
-      ver.textContent = d.tag_name + ' · ' + Math.round(apk.size / 1024) + ' KB · ' +
+
+      var kb = Math.round(apk.size / 1024);
+      // 页面上的"安装包多大"必须是真实数字，不能手写 —— 手写的迟早会过期
+      var sizeEl = document.getElementById('apkSizeTxt');
+      if (sizeEl) sizeEl.textContent = kb + ' KB';
+
+      ver.textContent = d.tag_name + ' · ' + kb + ' KB · ' +
         String(d.published_at || '').slice(0, 10);
     })
     ['catch'](function () { fallback(); });
