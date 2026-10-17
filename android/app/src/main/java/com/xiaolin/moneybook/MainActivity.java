@@ -1,15 +1,20 @@
 package com.xiaolin.moneybook;
 
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.KeyEvent;
+import android.webkit.JsPromptResult;
+import android.webkit.JsResult;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.EditText;
 
 /**
  * 一个最小的 WebView 外壳。
@@ -20,6 +25,19 @@ import android.webkit.WebViewClient;
  *
  * 好处是「一份代码，两个形态」——同一个 index.html 既是网页版，也是 APK 的界面。
  * 以后加通知自动记账时，原生这边只负责把解析出来的记录塞给网页，界面照样复用。
+ *
+ * ============================================================
+ * 这里有一段非常重要的原生桥，缺了它 App 会「看起来正常、其实残废」：
+ *
+ *   1. onShowFileChooser —— 网页里的 <input type="file"> 选文件
+ *      「导入备份」「导入微信/支付宝账单」都靠它。不实现 = 按钮点下去毫无反应。
+ *
+ *   2. onJsAlert / onJsConfirm / onJsPrompt —— 网页里的 alert/confirm/prompt
+ *      删记录、导入账单、重算分类都要弹确认框。不实现的话，这些确认
+ *      可能静默返回 false —— 表现就是「点了没反应」，比报错还难查。
+ *
+ * 这两个坑都属于同一类：**网页里由浏览器代劳的事，进了 WebView 全要自己接。**
+ * ============================================================
  */
 public class MainActivity extends Activity {
 
@@ -51,16 +69,9 @@ public class MainActivity extends Activity {
         // 让页面里的链接留在 App 内，不要跳出去开浏览器
         web.setWebViewClient(new WebViewClient());
 
-        // ============================================================
-        // 非常重要：没有这段，网页里的 <input type="file"> 就是哑巴按钮。
-        // 「导入备份」和「导入微信/支付宝账单」都靠 <input type="file"> 选文件，
-        // 缺了它，这两个功能点下去一点反应都没有。
-        //
-        // 流程：网页发起选文件请求 → 系统回调 onShowFileChooser →
-        //       我们拉起安卓的「文件选择器」→ 用户选完 →
-        //       在 onActivityResult 里把结果交还给网页。
-        // ============================================================
         web.setWebChromeClient(new WebChromeClient() {
+
+            /* ---------- 桥 1：网页选文件 ---------- */
             @Override
             public boolean onShowFileChooser(WebView view,
                                              ValueCallback<Uri[]> callback,
@@ -84,6 +95,55 @@ public class MainActivity extends Activity {
                     pendingFileCallback = null;
                     return false;
                 }
+            }
+
+            /* ---------- 桥 2：alert / confirm / prompt ---------- */
+            @Override
+            public boolean onJsAlert(WebView view, String url, String message, final JsResult result) {
+                new AlertDialog.Builder(MainActivity.this)
+                        .setMessage(message)
+                        .setCancelable(false)
+                        .setPositiveButton("知道了", new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface d, int w) { result.confirm(); }
+                        })
+                        .show();
+                return true;
+            }
+
+            @Override
+            public boolean onJsConfirm(WebView view, String url, String message, final JsResult result) {
+                new AlertDialog.Builder(MainActivity.this)
+                        .setMessage(message)
+                        .setCancelable(false)
+                        .setPositiveButton("确定", new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface d, int w) { result.confirm(); }
+                        })
+                        .setNegativeButton("取消", new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface d, int w) { result.cancel(); }
+                        })
+                        .show();
+                return true;
+            }
+
+            @Override
+            public boolean onJsPrompt(WebView view, String url, String message, String defaultValue,
+                                      final JsPromptResult result) {
+                final EditText input = new EditText(MainActivity.this);
+                input.setText(defaultValue == null ? "" : defaultValue);
+                new AlertDialog.Builder(MainActivity.this)
+                        .setMessage(message)
+                        .setView(input)
+                        .setCancelable(false)
+                        .setPositiveButton("确定", new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface d, int w) {
+                                result.confirm(input.getText().toString());
+                            }
+                        })
+                        .setNegativeButton("取消", new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface d, int w) { result.cancel(); }
+                        })
+                        .show();
+                return true;
             }
         });
 

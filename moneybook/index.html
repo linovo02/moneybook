@@ -269,6 +269,44 @@
     border-radius:13px;padding:13px;font-size:15px;color:var(--sub);cursor:pointer;
   }
   .sheet-cancel:active{background:#f2f3f6}
+  /* ===== 概览页 ===== */
+  .hero{
+    background:var(--card);border-radius:var(--radius);
+    padding:22px 16px 20px;margin-bottom:12px;text-align:center;
+  }
+  .hero-k{font-size:13px;color:var(--sub)}
+  .hero-v{font-size:34px;font-weight:700;letter-spacing:-.01em;margin-top:6px;word-break:break-all}
+  .hero-d{font-size:12.5px;color:var(--sub);margin-top:9px}
+  .hero-d b{font-weight:700}
+  .hero-d b.up{color:var(--red)}
+  .hero-d b.down{color:var(--green)}
+  .tap-hint{font-weight:400;color:var(--sub);font-size:12px}
+
+  .goal-row{display:flex;justify-content:space-between;font-size:13px;color:var(--sub);margin-bottom:9px}
+  .goal-foot{font-size:13px;margin-top:10px;color:var(--text)}
+  .goal-foot b{font-weight:700;color:var(--blue)}
+  .goal-set-row{display:flex;gap:8px;margin-top:13px}
+  .goal-set-row input{
+    flex:1;min-width:0;border:1px solid var(--line);background:#fafafb;
+    border-radius:11px;padding:11px 12px;outline:none;font-size:15px;
+  }
+  .goal-set-row input:focus{border-color:var(--blue);background:#fff}
+  .goal-set-row button{
+    flex:0 0 auto;border:1px solid var(--line);background:#fafafb;border-radius:11px;
+    padding:11px 15px;font-size:14px;font-weight:600;color:var(--text);cursor:pointer;
+  }
+  .goal-set-row button:active{background:#f2f3f6}
+
+  .fab{
+    position:fixed;z-index:40;
+    right:calc(50% - 240px + 16px);
+    bottom:calc(84px + env(safe-area-inset-bottom));
+    border:0;border-radius:99px;padding:14px 22px;
+    background:var(--green);color:#fff;font-size:15px;font-weight:700;cursor:pointer;
+    box-shadow:0 8px 22px rgba(10,160,110,.32);
+  }
+  .fab:active{transform:scale(.97)}
+  @media (max-width:560px){ .fab{right:16px} }
 </style>
 </head>
 <body>
@@ -304,7 +342,7 @@
   <div class="warn" id="warn"></div>
 
   <!-- ===== 记账 ===== -->
-  <section class="view on" id="view-add">
+  <section class="view" id="view-add">
     <div class="card">
       <div class="seg" id="seg">
         <button type="button" data-type="expense"><span class="ico">💸</span>记支出</button>
@@ -331,13 +369,36 @@
       <button class="submit" id="submit" type="button">保存这一笔</button>
     </div>
 
+  </section>
+
+  <!-- ===== 概览：新的第一屏 =====
+       记账 App 打开就给输入框是错的：人想先看到"我这个月花了多少"，
+       而不是先看到一个等填的空表格。 -->
+  <section class="view on" id="view-home">
+
+    <div class="hero">
+      <div class="hero-k">本月支出</div>
+      <div class="hero-v" id="heroNum">¥0.00</div>
+      <div class="hero-d" id="heroCmp"></div>
+    </div>
+
+    <div class="sums" id="homeSums"></div>
+
+    <div class="card">
+      <div class="listhead"><h2>存钱目标</h2><span class="sub" id="goalTip"></span></div>
+      <div id="goalBox"></div>
+    </div>
+
     <div class="card">
       <div class="listhead">
-        <h2>最近记录</h2>
+        <h2>最近记录<span class="tap-hint"> · 点一行可改分类</span></h2>
         <span class="sub" id="recentSub"></span>
       </div>
       <div id="recentList"></div>
     </div>
+
+    <button class="fab" type="button" id="fabAdd">＋ 记一笔</button>
+
   </section>
 
   <!-- ===== 统计 ===== -->
@@ -390,7 +451,8 @@
 </div>
 
 <nav class="tabbar" id="tabbar">
-  <button type="button" data-tab="add" class="on"><span class="ico">✏️</span>记账</button>
+  <button type="button" data-tab="home" class="on"><span class="ico">🏠</span>概览</button>
+  <button type="button" data-tab="add"><span class="ico">✏️</span>记账</button>
   <button type="button" data-tab="stat"><span class="ico">📊</span>统计</button>
 </nav>
 
@@ -446,7 +508,7 @@
     type: 'expense',
     category: '吃饭',
     month: '',
-    tab: 'add'
+    tab: 'home'
   };
   // 记录顺序号：同一毫秒内连记两笔时也能稳定排序（值越大越新）
   var seq = (function () {
@@ -530,6 +592,14 @@
     });
   }
   function monthLabel(m) { return m ? (m.slice(0, 4) + '年' + Number(m.slice(5, 7)) + '月') : ''; }
+
+  /* 上一个自然月，比如 2026-01 的上一个月是 2025-12 */
+  function prevMonth(m) {
+    var y = Number(m.slice(0, 4)), mo = Number(m.slice(5, 7));
+    mo--;
+    if (mo < 1) { mo = 12; y--; }
+    return y + '-' + pad2(mo);
+  }
   function empty(text) { return '<div class="empty">' + esc(text) + '</div>'; }
 
   var toastTimer = null;
@@ -593,21 +663,89 @@
     });
   }
 
-  function renderAdd() {
-    var m = todayStr().slice(0, 7);
-    var list = sortRecords(state.records.filter(function (r) { return monthOf(r.date) === m; }), false);
-    var sumExp = 0, sumInc = 0, sumSav = 0, i;
-    for (i = 0; i < list.length; i++) {
-      if (list[i].type === 'expense') sumExp += list[i].amount;
-      else if (list[i].type === 'income') sumInc += list[i].amount;
-      else sumSav += list[i].amount;
-    }
-    $('recentSub').textContent = monthLabel(m) + ' · 支出 ' + money(sumExp) + ' / 收入 ' + money(sumInc) + ' / 存 ' + money(sumSav);
+  /* ---------- 渲染：概览页（第一屏） ---------- */
+  var GOAL_KEY = 'xiaolin_goal_v1';
 
-    var show = list.slice(0, 30);
+  function loadGoal() {
+    try {
+      var v = Number(window.localStorage.getItem(GOAL_KEY));
+      return (isFinite(v) && v > 0) ? v : 0;
+    } catch (e) { return 0; }
+  }
+  function saveGoal() {
+    try { window.localStorage.setItem(GOAL_KEY, String(savingGoal)); } catch (e) {}
+  }
+
+  var savingGoal = loadGoal();
+
+  function renderGoal(m, saved) {
+    $('goalTip').textContent = monthLabel(m);
+
     var html = '';
+    if (savingGoal > 0) {
+      var pct = saved / savingGoal * 100;
+      if (pct > 100) pct = 100;
+      var left = savingGoal - saved;
+      html +=
+        '<div class="goal-row"><span>目标 ¥' + money(savingGoal) + '</span>' +
+        '<span>已存 ¥' + money(saved) + '</span></div>' +
+        '<div class="track"><div class="fill" style="width:' + pct.toFixed(1) +
+          '%;background:#3b6cf6"></div></div>' +
+        '<div class="goal-foot">' +
+          (left > 0.004
+            ? ('还差 <b>¥' + money(left) + '</b>')
+            : ('🎉 目标已达成，还多存了 <b>¥' + money(-left) + '</b>')) +
+        '</div>';
+    } else {
+      html += '<div class="goal-foot" style="margin-top:0;color:var(--sub)">' +
+        '还没设目标。设一个，这里会显示进度和还差多少。</div>';
+    }
+
+    html +=
+      '<div class="goal-set-row">' +
+        '<input type="number" inputmode="decimal" min="0" step="1" id="goalInput" placeholder="比如 1500"' +
+        (savingGoal > 0 ? ' value="' + savingGoal + '"' : '') + '>' +
+        '<button type="button" data-goal="save">保存目标</button>' +
+      '</div>';
+
+    $('goalBox').innerHTML = html;
+  }
+
+  function renderHome() {
+    var m = thisMonth();
+    var s = stats(m);
+    var balance = s.inc - s.exp - s.sav;
+
+    $('heroNum').textContent = '¥' + money(s.exp);
+
+    // 和上一个自然月对比 —— 光看一个数字没感觉，有对比才有感觉
+    var ps = stats(prevMonth(m));
+    var diff = s.exp - ps.exp;
+    if (ps.exp <= 0) {
+      $('heroCmp').textContent = '上个月没有记录，还无法对比';
+    } else if (diff > 0.004) {
+      $('heroCmp').innerHTML = '比上月多花了 <b class="up">¥' + money(diff) + '</b>';
+    } else if (diff < -0.004) {
+      $('heroCmp').innerHTML = '比上月少花了 <b class="down">¥' + money(-diff) + '</b>';
+    } else {
+      $('heroCmp').textContent = '和上个月基本持平';
+    }
+
+    $('homeSums').innerHTML =
+      '<div class="sum"><div class="k">收入</div><div class="v income">+' + money(s.inc) + '</div></div>' +
+      '<div class="sum"><div class="k">存钱</div><div class="v saving">-' + money(s.sav) + '</div></div>' +
+      '<div class="sum"><div class="k">结余</div><div class="v ' + (balance < 0 ? 'expense' : 'income') + '">' +
+        (balance < 0 ? '-' : '') + money(Math.abs(balance)) + '</div></div>';
+
+    renderGoal(m, s.sav);
+
+    var list = sortRecords(state.records.filter(function (r) { return monthOf(r.date) === m; }), false);
+    $('recentSub').textContent = monthLabel(m) + ' · 共 ' + list.length + ' 笔';
+
+    var show = list.slice(0, 6), html = '', i;
     for (i = 0; i < show.length; i++) html += rowHTML(show[i], false);
-    $('recentList').innerHTML = show.length ? html : empty('这个月还没有记一笔，上面输入金额开始吧');
+    $('recentList').innerHTML = show.length ? html
+      : empty('这个月还没有记一笔，点右下角「＋ 记一笔」开始');
   }
 
   /* ---------- 渲染：统计 ---------- */
@@ -698,13 +836,37 @@
   }
 
   function renderTab() {
-    var views = { add: $('view-add'), stat: $('view-stat') };
+    var views = { home: $('view-home'), add: $('view-add'), stat: $('view-stat') };
     for (var k in views) views[k].classList.toggle('on', k === state.tab);
     var btns = $('tabbar').querySelectorAll('button');
     for (var i = 0; i < btns.length; i++) btns[i].classList.toggle('on', btns[i].getAttribute('data-tab') === state.tab);
   }
 
-  function renderAll() { renderAdd(); renderStat(); }
+  function renderAll() { renderHome(); renderStat(); }
+
+  /* 切页：三个页面一起重画，免得某个页停在旧数据上 */
+  function switchTab(tab) {
+    state.tab = tab;
+    renderTab();
+    renderAll();
+    window.scrollTo(0, 0);
+  }
+
+  /* 悬浮按钮：直接跳到记账页 */
+  $('fabAdd').addEventListener('click', function () { switchTab('add'); });
+
+  /* 存钱目标：保存 */
+  $('goalBox').addEventListener('click', function (e) {
+    var btn = e.target.closest('button[data-goal]');
+    if (!btn) return;
+    var raw = $('goalInput') ? $('goalInput').value : '';
+    var n = Number(String(raw).replace(/[^\d.]/g, ''));
+    if (!isFinite(n) || n <= 0) { toast('请填一个大于 0 的数字'); return; }
+    savingGoal = Math.round(n * 100) / 100;
+    saveGoal();
+    renderHome();
+    toast('存钱目标已设为 ¥' + money(savingGoal));
+  });
 
   /* ---------- 事件：记账类 ---------- */
   $('seg').addEventListener('click', function (e) {
@@ -795,10 +957,7 @@
   $('tabbar').addEventListener('click', function (e) {
     var btn = e.target.closest('button[data-tab]');
     if (!btn) return;
-    state.tab = btn.getAttribute('data-tab');
-    renderTab();
-    if (state.tab === 'stat') renderStat(); else renderAdd();
-    window.scrollTo(0, 0);
+    switchTab(btn.getAttribute('data-tab'));
   });
 
   $('btnExport').addEventListener('click', function () {
