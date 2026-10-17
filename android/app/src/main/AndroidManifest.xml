@@ -29,5 +29,21 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!--
+          通知监听服务：「自动记账」的地基。
+          需要用户在系统设置里手动打开「通知使用权」才能收到通知 ——
+          这是安卓的硬性要求，绕不过去，也不该绕过去。
+          注意：它依然【不需要】INTERNET 权限，所以读到的通知不可能被传出去。
+        -->
+        <service
+            android:name=".NotifyListener"
+            android:label="记账本 · 通知读取"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
     </application>
 </manifest>

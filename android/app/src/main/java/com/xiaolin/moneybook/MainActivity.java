@@ -69,6 +69,10 @@ public class MainActivity extends Activity {
         // 让页面里的链接留在 App 内，不要跳出去开浏览器
         web.setWebViewClient(new WebViewClient());
 
+        // 网页通过 window.XiaolinApp 访问原生能力（通知调试面板用）。
+        // 安全上没问题：我们只加载自己打包在 assets 里的 HTML，没有任何远程页面。
+        web.addJavascriptInterface(new Bridge(), "XiaolinApp");
+
         web.setWebChromeClient(new WebChromeClient() {
 
             /* ---------- 桥 1：网页选文件 ---------- */
@@ -153,6 +157,70 @@ public class MainActivity extends Activity {
             web.loadUrl("file:///android_asset/index.html");
         } else {
             web.restoreState(savedInstanceState);
+        }
+    }
+
+    /* ============================================================
+       给网页用的桥
+       网页里通过 window.XiaolinApp.xxx() 调用
+       ============================================================ */
+    public class Bridge {
+
+        /** 最近收到的通知（JSON 字符串，最新的在前） */
+        @android.webkit.JavascriptInterface
+        public String notifications() {
+            return NotifyListener.toJson();
+        }
+
+        /** 用户有没有在系统设置里打开「通知使用权」 */
+        @android.webkit.JavascriptInterface
+        public boolean hasAccess() {
+            return hasNotifyAccess();
+        }
+
+        /** 监听服务是否真的连上了（刚授权完可能要重启一次 App） */
+        @android.webkit.JavascriptInterface
+        public boolean listenerConnected() {
+            return NotifyListener.isConnected();
+        }
+
+        /** 跳到系统的「通知使用权」设置页 */
+        @android.webkit.JavascriptInterface
+        public void openSettings() {
+            try {
+                startActivity(new Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS));
+            } catch (Exception e) {
+                try {
+                    startActivity(new Intent(android.provider.Settings.ACTION_SETTINGS));
+                } catch (Exception ignored) { }
+            }
+        }
+
+        /** 清空内存里的通知 */
+        @android.webkit.JavascriptInterface
+        public void clear() {
+            NotifyListener.clear();
+        }
+
+        /** App 版本号 —— 显示在网页里，这样一眼就知道装的是哪一版 */
+        @android.webkit.JavascriptInterface
+        public String versionName() {
+            try {
+                return getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+            } catch (Exception e) {
+                return "";
+            }
+        }
+    }
+
+    /** 检查「通知使用权」有没有授予本 App */
+    private boolean hasNotifyAccess() {
+        try {
+            String flat = android.provider.Settings.Secure.getString(
+                    getContentResolver(), "enabled_notification_listeners");
+            return flat != null && flat.contains(getPackageName());
+        } catch (Exception e) {
+            return false;
         }
     }
 

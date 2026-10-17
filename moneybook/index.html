@@ -307,6 +307,22 @@
   }
   .fab:active{transform:scale(.97)}
   @media (max-width:560px){ .fab{right:16px} }
+  /* ===== 通知调试面板 ===== */
+  .sheet-full .sheet-in{ height:88vh; max-height:88vh; display:flex; flex-direction:column; }
+  .noti-actions{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+  .noti-actions button{
+    flex:1;min-width:0;border:1px solid var(--line);background:#fafafb;border-radius:11px;
+    padding:11px 8px;font-size:13.5px;font-weight:600;color:var(--text);cursor:pointer;
+  }
+  .noti-actions button:active{background:#f2f3f6}
+  .noti-list{flex:1;overflow-y:auto;border-top:1px solid var(--line);margin-bottom:10px}
+  .noti-item{padding:10px 0;border-bottom:1px solid var(--line)}
+  .noti-h{display:flex;justify-content:space-between;font-size:11.5px;color:var(--sub);margin-bottom:3px}
+  .noti-app{font-weight:600}
+  .noti-t{font-size:14px;font-weight:600;word-break:break-all}
+  .noti-b{font-size:13px;color:#3c4048;white-space:pre-wrap;word-break:break-all;margin-top:3px}
+  .noti-empty{text-align:center;color:var(--sub);font-size:13.5px;padding:34px 10px;line-height:1.9}
+  .noti-tip{font-size:11.5px;color:var(--sub);line-height:1.6}
 </style>
 </head>
 <body>
@@ -329,6 +345,22 @@
     <div class="cats" id="sheetCats"></div>
     <div class="sheet-tip" id="sheetTip"></div>
     <button class="sheet-cancel" type="button" id="sheetCancel">取消</button>
+  </div>
+</div>
+
+<!-- ===== 通知调试面板：只在 App 里可用（网页版读不到通知） ===== -->
+<div id="notiPanel" class="sheet sheet-full">
+  <div class="sheet-in sheet-full-in">
+    <div class="sheet-h">通知调试</div>
+    <div class="sheet-sub" id="notiStatus">正在检查…</div>
+    <div class="noti-actions">
+      <button type="button" id="notiPerm">去开通知使用权</button>
+      <button type="button" id="notiRefresh">刷新</button>
+      <button type="button" id="notiClear">清空</button>
+    </div>
+    <div class="noti-list" id="notiList"></div>
+    <div class="noti-tip">这些通知只存在内存里，App 一关就没了；不写文件、不联网。</div>
+    <button class="sheet-cancel" type="button" id="notiClose">关闭</button>
   </div>
 </div>
 
@@ -443,7 +475,11 @@
       <div class="tools" style="margin-top:8px">
         <button type="button" id="btnRecat">按最新规则重算历史账单</button>
       </div>
+      <div class="tools" style="margin-top:8px">
+        <button type="button" id="btnNoti">通知调试（看看能读到哪些通知）</button>
+      </div>
       <div class="foot" id="dataTip">换手机、或清理浏览器数据之前，先「导出备份」存到微信/网盘；重装之后用「导入备份」恢复。以前导入的记录分类偏了，点上面按钮重算一遍（你手动改过的会自动保留）。</div>
+      <div class="foot" id="appVer" style="display:none"></div>
       <input type="file" id="fileImport" accept="application/json,.json" style="display:none">
       <input type="file" id="fileBill" accept=".csv,text/csv,text/plain" style="display:none">
     </div>
@@ -1373,6 +1409,88 @@
     else reader.readAsText(f);
   });
 
+  /* ========== 通知调试面板 ==========
+     只在 App 里可用：通过 window.XiaolinApp 调原生能力。
+     浏览器里没有这个对象，所以按钮会提示"只在 App 里能用"，不会报错。 */
+  function nativeBridge() {
+    try {
+      return (typeof window !== 'undefined' && window.XiaolinApp) ? window.XiaolinApp : null;
+    } catch (e) { return null; }
+  }
+
+  function two(n) { return n < 10 ? ('0' + n) : String(n); }
+
+  function fmtClock(ms) {
+    if (!ms) return '';
+    var d = new Date(Number(ms));
+    return two(d.getHours()) + ':' + two(d.getMinutes()) + ':' + two(d.getSeconds());
+  }
+
+  function refreshNoti() {
+    var app = nativeBridge();
+    if (!app) return;
+
+    var has = false, conn = false, raw = '[]';
+    try {
+      has = !!app.hasAccess();
+      conn = !!app.listenerConnected();
+      raw = app.notifications() || '[]';
+    } catch (e) {}
+
+    $('notiStatus').textContent = !has
+      ? '还没授权 —— 现在读不到任何通知。点下面「去开通知使用权」。'
+      : (conn ? '已授权，监听服务运行中。' : '已授权，但监听服务还没连上（把 App 完全关掉再打开一次）。');
+
+    var list = [];
+    try { list = JSON.parse(raw); } catch (e) { list = []; }
+
+    if (!list || !list.length) {
+      $('notiList').innerHTML = '<div class="noti-empty">' +
+        (has ? '还没收到通知。去用微信或支付宝付一笔小钱试试。'
+             : '先授权，然后去付一笔小钱试试。') + '</div>';
+      return;
+    }
+
+    var html = '', i, it;
+    for (i = 0; i < list.length && i < 60; i++) {
+      it = list[i];
+      html += '<div class="noti-item">' +
+        '<div class="noti-h"><span class="noti-app">' + esc(it.app || it.pkg || '未知') + '</span>' +
+        '<span class="noti-time">' + esc(fmtClock(it.time)) + '</span></div>' +
+        '<div class="noti-t">' + esc(it.title || '(无标题)') + '</div>' +
+        '<div class="noti-b">' + esc(it.text || '(正文为空)') + '</div>' +
+        '</div>';
+    }
+    $('notiList').innerHTML = html;
+  }
+
+  $('btnNoti').addEventListener('click', function () {
+    if (!nativeBridge()) {
+      toast('这个功能只在 App 里能用，网页版读不到通知');
+      return;
+    }
+    $('notiPanel').classList.add('on');
+    refreshNoti();
+  });
+
+  $('notiRefresh').addEventListener('click', refreshNoti);
+  $('notiClose').addEventListener('click', function () { $('notiPanel').classList.remove('on'); });
+
+  $('notiPerm').addEventListener('click', function () {
+    var app = nativeBridge();
+    if (!app) return;
+    try { app.openSettings(); } catch (e) {}
+    toast('在列表里找到「记账本」，把开关打开');
+  });
+
+  $('notiClear').addEventListener('click', function () {
+    var app = nativeBridge();
+    if (!app) return;
+    try { app.clear(); } catch (e) {}
+    refreshNoti();
+    toast('已清空内存里的通知');
+  });
+
   /* ---------- 用最新规则重算历史账单的分类 ----------
      为什么需要它：关键词库变强了、你也教过几个商家，但老记录不会自己变。
      点一下按最新规则重算。
@@ -1499,6 +1617,19 @@
     renderCats();
     renderTab();
     renderAll();
+
+    // 在 App 里显示版本号（网页版没有原生桥，所以不显示）
+    var nb = nativeBridge();
+    if (nb) {
+      try {
+        var ver = nb.versionName();
+        if (ver) {
+          $('appVer').textContent = 'App 版本 ' + ver;
+          $('appVer').style.display = '';
+        }
+      } catch (e) {}
+    }
+
     runIntro();
   }
   init();
