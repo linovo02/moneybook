@@ -3,7 +3,7 @@
      页面请求（navigate）：先联网拿最新版；联网失败时回落到缓存 → 离线可用
      其它同源资源：缓存优先，缓存里没有才联网
    改完代码记得把 CACHE 版本号 +1，否则手机会一直用旧的缓存。 */
-var CACHE = 'jizhang-v0.3.0';
+var CACHE = 'jizhang-v0.3.1';
 
 var ASSETS = [
   './',

@@ -26,7 +26,8 @@
     --radius:16px;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  html,body{margin:0;padding:0}
+  html,body{margin:0;padding:0;max-width:100%;overflow-x:hidden}
+  img,svg{max-width:100%}
   body{
     background:var(--bg);
     color:var(--text);
@@ -40,6 +41,7 @@
   /* 桌面（Edge 电脑版）居中；手机全宽 */
   .app{
     max-width:100%;
+    width:100%;
     margin:0 auto;
     padding:12px 12px calc(96px + env(safe-area-inset-bottom));
   }
@@ -183,9 +185,10 @@
   .tools button.danger{color:var(--red)}
 
   /* 底部导航 */
+  /* 底部导航：用 flex 平分宽度，不写死列数 —— 加多少标签都不会换行 */
   .tabbar{
     position:fixed;bottom:0;left:0;right:0;z-index:20;
-    display:grid;grid-template-columns:repeat(3,1fr);
+    display:flex;
     background:rgba(255,255,255,.96);
     backdrop-filter:blur(10px);
     border-top:1px solid var(--line);
@@ -193,6 +196,7 @@
   }
   .tabbar button{
     appearance:none;border:0;background:transparent;cursor:pointer;
+    flex:1 1 0;min-width:0;
     padding:9px 0 11px;font-size:12px;color:var(--sub);
     display:flex;flex-direction:column;align-items:center;gap:2px;
   }
@@ -295,8 +299,8 @@
   .hcard-cmp b.up{color:var(--red)}
   .hcard-cmp b.down{color:var(--green)}
   .cmp-ref{
-    display:block;width:100%;margin-top:5px;border:0;background:transparent;
-    color:var(--sub);font-size:12px;padding:2px 0;cursor:pointer;
+    display:inline;border:0;background:transparent;
+    color:var(--sub);font-size:12px;padding:0 0 0 6px;cursor:pointer;
   }
   .cmp-ref:active{opacity:.6}
   .cmp-tag{
@@ -373,6 +377,28 @@
     color:var(--sub);font-size:13.5px;padding:2px 0 8px;cursor:pointer;
   }
   .goal-line:active{color:var(--blue)}
+  /* ===== 钱去哪了：饼图详情 ===== */
+  .pie-wrap{display:flex;justify-content:center;padding:4px 0 16px}
+  .pie{width:196px;height:196px;transform:rotate(-90deg)}
+  .pie .seg{
+    fill:none;stroke-width:22;
+    /* 每一段从"没画"到"画满"，按顺序错开出场；结束停在元素自己的 dashoffset 上 */
+    animation:segIn .62s cubic-bezier(.22,.9,.24,1) both;
+    animation-delay:var(--d,0s);
+  }
+  @keyframes segIn{ from{ stroke-dashoffset:339.3 } }
+  @media (prefers-reduced-motion:reduce){ .pie .seg{animation:none} }
+
+  .pie-legend{flex:1;overflow-y:auto;margin-bottom:10px}
+  .pl-row{
+    display:flex;align-items:center;gap:8px;padding:10px 0;
+    border-bottom:1px solid var(--line);font-size:14px;
+  }
+  .pl-row:last-child{border-bottom:0}
+  .pl-dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
+  .pl-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pl-amt{font-weight:600}
+  .pl-pct{color:var(--sub);font-size:12.5px;width:48px;text-align:right}
 </style>
 </head>
 <body>
@@ -411,6 +437,19 @@
     <div class="noti-list" id="notiList"></div>
     <div class="noti-tip">这些通知只存在内存里，App 一关就没了；不写文件、不联网。</div>
     <button class="sheet-cancel" type="button" id="notiClose">关闭</button>
+  </div>
+</div>
+
+<!-- ===== 钱去哪了：饼图详情页（带入场动画） ===== -->
+<div id="catPanel" class="sheet sheet-full">
+  <div class="sheet-in sheet-full-in">
+    <div class="sheet-h">钱去哪了</div>
+    <div class="sheet-sub" id="catTotal"></div>
+    <div class="pie-wrap">
+      <svg id="catPie" class="pie" viewBox="0 0 160 160"></svg>
+    </div>
+    <div class="pie-legend" id="catLegend"></div>
+    <button class="sheet-cancel" type="button" id="catClose">关闭</button>
   </div>
 </div>
 
@@ -475,6 +514,7 @@
     <div class="card">
       <div class="listhead"><h2>钱去哪了</h2><span class="sub" id="topTip"></span></div>
       <div id="topCats"></div>
+      <button type="button" class="linkbtn" id="btnAllCats">查看全部分类 →</button>
     </div>
 
     <div class="card">
@@ -690,6 +730,9 @@
   }
   function monthLabel(m) { return m ? (m.slice(0, 4) + '年' + Number(m.slice(5, 7)) + '月') : ''; }
 
+  /* 只显示"9月"，年份由顶部导航负责 —— 一屏里"2026年"出现三次太吵 */
+  function monthShort(m) { return m ? (Number(m.slice(5, 7)) + '月') : ''; }
+
   /* 上一个自然月，比如 2026-01 的上一个月是 2025-12 */
   function prevMonth(m) {
     var y = Number(m.slice(0, 4)), mo = Number(m.slice(5, 7));
@@ -792,7 +835,7 @@
 
     if (m === cur) {
       days = Number(todayStr().slice(8, 10));
-      tail = days > 0 ? (' · 照这速度月底约 ¥' + money(exp / days * total)) : '';
+      tail = days > 0 ? (' · 月底约 ¥' + money(exp / days * total)) : '';
     } else if (m < cur) {
       days = total;
       tail = ' · 整月合计';
@@ -805,7 +848,8 @@
   }
 
   function renderGoal(m, saved) {
-    $('goalTip').textContent = (savingGoal > 0 && !goalEditing) ? monthLabel(m) : '';
+    // 月份已经在页面顶部显示，这里不再重复
+    $('goalTip').textContent = '';
 
     // 没设目标、也不在编辑：只占一行，不浪费首页最贵的地段
     if (!goalEditing && savingGoal <= 0) {
@@ -858,9 +902,9 @@
     var diff = s.exp - ps.exp;
     if (ps.exp <= 0.004) {
       $('heroCmp').innerHTML = '<span class="cmp-none">' +
-        monthLabel(pm) + '没有记录，暂时没法对比</span>';
+        monthShort(pm) + '没有记录，暂时没法对比</span>';
     } else if (Math.abs(diff) <= 0.004) {
-      $('heroCmp').innerHTML = '<span class="cmp-none">和' + monthLabel(pm) +
+      $('heroCmp').innerHTML = '<span class="cmp-none">和' + monthShort(pm) +
         '基本持平（都是 ¥' + money(ps.exp) + '）</span>';
     } else {
       var good = diff < 0;
@@ -873,7 +917,7 @@
         // 把上月金额做成可点的：点一下就翻到那个月看明细。
         // 这样"比上月少花多少"永远可以追溯，不会像凭空算出来的。
         '<button type="button" class="cmp-ref" data-gomonth="' + pm + '">' +
-          monthLabel(pm) + '支出 ¥' + money(ps.exp) + ' ›</button>';
+          monthShort(pm) + '支出 ¥' + money(ps.exp) + ' ›</button>';
     }
 
     $('heroPace').textContent = paceText(m, s.exp);
@@ -890,19 +934,24 @@
     if (!top.length) {
       $('topCats').innerHTML = empty('这个月还没有支出');
     } else {
-      var max = top[0].amount, h = '', i, c;
+      var h = '', i, c;
       for (i = 0; i < top.length; i++) {
         c = top[i];
+        // 条形长度 = 占总支出的比例，和右边那个百分比一致。
+        // 以前按"相对最大类"算，会出现"写着 35% 却拉满整条"的矛盾。
         h += '<div class="topcat">' +
           '<div class="topcat-h"><span class="topcat-n">' + c.ico + ' ' + esc(c.name) + '</span>' +
           '<span class="topcat-a">¥' + money(c.amount) + ' · ' + c.pct.toFixed(0) + '%</span></div>' +
           '<div class="track"><div class="fill" style="width:' +
-            (max > 0 ? (c.amount / max * 100).toFixed(1) : 0) +
+            Math.max(2, c.pct).toFixed(1) +
             '%;background:' + c.color + '"></div></div>' +
           '</div>';
       }
       $('topCats').innerHTML = h;
     }
+
+    $('btnAllCats').style.display = s.cats.length > 3 ? '' : 'none';
+    $('btnAllCats').textContent = '查看全部 ' + s.cats.length + ' 类 →';
 
     renderGoal(m, s.sav);
 
@@ -1038,6 +1087,55 @@
     saveGoal();
     renderHome();
     toast('存钱目标已设为 ¥' + money(savingGoal));
+  });
+
+  /* ========== 钱去哪了：饼图详情 ==========
+     用 SVG 环形图。每一段用 dasharray 控制长度，dashoffset 控制起点，
+     再把 dashoffset 用 CSS 动画从"整圈"收到目标值 —— 就是"一圈圈画出来"的出场效果。
+     dasharray / dashoffset 都写在元素上是最终值，所以动画不执行图也是完整的。 */
+  function renderCatPanel() {
+    var m = state.homeMonth || thisMonth();
+    var s = stats(m);
+
+    $('catTotal').textContent = monthLabel(m) + ' · 共 ' + s.cats.length +
+      ' 类 · 合计 ¥' + money(s.exp);
+
+    if (!s.cats.length) {
+      $('catPie').innerHTML = '';
+      $('catLegend').innerHTML = '<div class="noti-empty">这个月还没有支出</div>';
+      return;
+    }
+
+    var R = 54, CIRC = 2 * Math.PI * R;
+    var svg = '', legend = '', cum = 0, i, c, len;
+
+    for (i = 0; i < s.cats.length; i++) {
+      c = s.cats[i];
+      len = c.pct / 100 * CIRC;
+
+      svg += '<circle class="seg" cx="80" cy="80" r="' + R + '" stroke="' + c.color + '"' +
+        ' stroke-dasharray="' + len.toFixed(2) + ' ' + CIRC.toFixed(2) + '"' +
+        ' stroke-dashoffset="' + (-cum).toFixed(2) + '"' +
+        ' style="--d:' + (i * 0.09).toFixed(2) + 's"></circle>';
+      cum += len;
+
+      legend += '<div class="pl-row">' +
+        '<span class="pl-dot" style="background:' + c.color + '"></span>' +
+        '<span class="pl-name">' + c.ico + ' ' + esc(c.name) + '</span>' +
+        '<span class="pl-amt">¥' + money(c.amount) + '</span>' +
+        '<span class="pl-pct">' + c.pct.toFixed(1) + '%</span>' +
+        '</div>';
+    }
+    $('catPie').innerHTML = svg;
+    $('catLegend').innerHTML = legend;
+  }
+
+  $('btnAllCats').addEventListener('click', function () {
+    $('catPanel').classList.add('on');
+    renderCatPanel();
+  });
+  $('catClose').addEventListener('click', function () {
+    $('catPanel').classList.remove('on');
   });
 
   /* 概览页：点对比里的月份，直接翻到那个月 */
