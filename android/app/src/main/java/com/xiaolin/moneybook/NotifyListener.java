@@ -66,6 +66,8 @@ public class NotifyListener extends NotificationListenerService {
     public void onListenerConnected() {
         connected = true;
         super.onListenerConnected();
+        // 连上了就顺手拉起保活服务：常驻一条通知，系统就不容易把这个进程杀掉
+        KeepAlive.start(this);
     }
 
     @Override
