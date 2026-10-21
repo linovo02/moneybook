@@ -377,27 +377,60 @@
   }
   .goal-line:active{color:var(--blue)}
   /* ===== 钱去哪了：饼图详情 ===== */
-  .pie-wrap{display:flex;justify-content:center;padding:4px 0 16px}
-  .pie{width:196px;height:196px;transform:rotate(-90deg)}
+  .pie-wrap{position:relative;display:flex;justify-content:center;padding:2px 0 14px}
+  .pie{width:100%;max-width:360px;height:auto;display:block}
   .pie .seg{
-    fill:none;stroke-width:22;
-    /* 每一段从"没画"到"画满"，按顺序错开出场；结束停在元素自己的 dashoffset 上 */
-    animation:segIn .62s cubic-bezier(.22,.9,.24,1) both;
+    fill:none;stroke-width:19;
+    /* 每一段从"零长度"生长到自己的长度，依次错开 —— 干净地绕一圈画出来，不会乱窜 */
+    animation:segGrow .5s cubic-bezier(.25,.8,.3,1) both;
     animation-delay:var(--d,0s);
   }
-  @keyframes segIn{ from{ stroke-dashoffset:339.3 } }
+  @keyframes segGrow{ from{ stroke-dasharray:0 360 } }
   @media (prefers-reduced-motion:reduce){ .pie .seg{animation:none} }
+
+  /* 圆心里的总额 */
+  .pie-center{
+    position:absolute;inset:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;pointer-events:none;
+  }
+  .pc-amt{font-size:20px;font-weight:700;letter-spacing:-.02em}
+  .pc-k{font-size:11px;color:var(--sub);margin-top:2px}
 
   .pie-legend{flex:1;overflow-y:auto;margin-bottom:10px}
   .pl-row{
-    display:flex;align-items:center;gap:8px;padding:10px 0;
+    display:flex;align-items:center;gap:8px;padding:11px 0;
     border-bottom:1px solid var(--line);font-size:14px;
   }
   .pl-row:last-child{border-bottom:0}
-  .pl-dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
+  .pl-idx{width:15px;color:var(--sub);font-size:12px;flex:0 0 auto;text-align:center}
+  .pl-dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
   .pl-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pl-cnt{color:var(--sub);font-size:11.5px;font-style:normal;margin-left:6px}
   .pl-amt{font-weight:600}
   .pl-pct{color:var(--sub);font-size:12.5px;width:48px;text-align:right}
+  /* 饼图下方分类行：可点开 */
+  .pl-row{cursor:pointer;border-radius:8px}
+  .pl-row:active{background:#f6f7f9}
+  .pl-row.open{background:#f6f7f9}
+  .pl-arrow{color:var(--sub);font-size:11px;width:10px;flex:0 0 auto;text-align:right}
+  .pl-sub{padding:0 0 10px 26px;border-bottom:1px solid var(--line)}
+  .pl-rec{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:12.5px;color:#3c4048}
+  .pl-rec-n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pl-rec-d{color:var(--sub);font-size:11.5px;flex:0 0 auto}
+  .pl-rec-a{font-weight:600;flex:0 0 auto;min-width:58px;text-align:right}
+
+  /* 分类明细页 */
+  .cd-head{display:flex;align-items:center;margin-bottom:4px}
+  .cd-back{
+    border:0;background:transparent;color:var(--blue);font-size:14px;
+    padding:4px 10px 4px 0;cursor:pointer;flex:0 0 auto;
+  }
+  .cd-title{font-size:17px;font-weight:700;display:flex;align-items:center;gap:6px}
+  .cd-dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+  .cd-list{flex:1;overflow-y:auto;margin-bottom:10px}
+
+  /* 统计页：本月记录限高滚动，避免一页要滑很久 */
+  #monthList{max-height:52vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
 </style>
 </head>
 <body>
@@ -446,9 +479,26 @@
     <div class="sheet-sub" id="catTotal"></div>
     <div class="pie-wrap">
       <svg id="catPie" class="pie" viewBox="0 0 160 160"></svg>
+      <div class="pie-center">
+        <span class="pc-amt" id="catCenterAmt"></span>
+        <span class="pc-k">总支出</span>
+      </div>
     </div>
     <div class="pie-legend" id="catLegend"></div>
     <button class="sheet-cancel" type="button" id="catClose">关闭</button>
+  </div>
+</div>
+
+<!-- ===== 某个分类的明细：独立一页，带返回 ===== -->
+<div id="catDetail" class="sheet sheet-full">
+  <div class="sheet-in sheet-full-in">
+    <div class="cd-head">
+      <button type="button" class="cd-back" id="cdBack">‹ 返回</button>
+      <span class="cd-title" id="cdTitle"></span>
+    </div>
+    <div class="sheet-sub" id="cdSum"></div>
+    <div class="cd-list" id="cdList"></div>
+    <button class="sheet-cancel" type="button" id="cdClose">关闭</button>
   </div>
 </div>
 
@@ -1099,33 +1149,116 @@
     $('catTotal').textContent = monthLabel(m) + ' · 共 ' + s.cats.length +
       ' 类 · 合计 ¥' + money(s.exp);
 
+    var PIE_COLORS = ['#2f6bf6', '#ff6b4a', '#00b894', '#f5a623', '#8b5cf6', '#e0507a', '#0ea5e9', '#94a3b8'];
+
+    $('catCenterAmt').textContent = s.cats.length ? ('¥' + money(s.exp)) : '';
+
     if (!s.cats.length) {
       $('catPie').innerHTML = '';
       $('catLegend').innerHTML = '<div class="noti-empty">这个月还没有支出</div>';
       return;
     }
 
-    var R = 54, CIRC = 2 * Math.PI * R;
-    var svg = '', legend = '', cum = 0, i, c, len;
+    /* 每个分类有几笔 */
+    var cnt = {}, j;
+    for (j = 0; j < s.list.length; j++) {
+      if (s.list[j].type === 'expense') {
+        cnt[s.list[j].category] = (cnt[s.list[j].category] || 0) + 1;
+      }
+    }
+
+    var CX = 172, CY = 108, R = 56, CIRC = 2 * Math.PI * R;
+    var rings = '', legend = '', cum = 0, i, c, len, color, a;
+    var lefts = [], rights = [];
 
     for (i = 0; i < s.cats.length; i++) {
       c = s.cats[i];
+      color = PIE_COLORS[i % PIE_COLORS.length];   // 按金额排名配色：最大的最醒目
       len = c.pct / 100 * CIRC;
 
-      svg += '<circle class="seg" cx="80" cy="80" r="' + R + '" stroke="' + c.color + '"' +
+      rings += '<circle class="seg" cx="' + CX + '" cy="' + CY + '" r="' + R + '" stroke="' + color + '"' +
         ' stroke-dasharray="' + len.toFixed(2) + ' ' + CIRC.toFixed(2) + '"' +
         ' stroke-dashoffset="' + (-cum).toFixed(2) + '"' +
-        ' style="--d:' + (i * 0.09).toFixed(2) + 's"></circle>';
+        ' style="--d:' + (i * 0.07).toFixed(2) + 's"></circle>';
+
+      /* 这一段的中点角度（0 = 3 点钟方向，要减去 90 才是从 12 点开始） */
+      a = ((cum + len / 2) / CIRC * 360 - 90) * Math.PI / 180;
       cum += len;
 
-      legend += '<div class="pl-row">' +
-        '<span class="pl-dot" style="background:' + c.color + '"></span>' +
-        '<span class="pl-name">' + c.ico + ' ' + esc(c.name) + '</span>' +
+      var item = {
+        x1: CX + Math.cos(a) * (R + 9),
+        y1: CY + Math.sin(a) * (R + 9),
+        x2: CX + Math.cos(a) * (R + 26),
+        y: CY + Math.sin(a) * (R + 26),
+        name: c.name, amount: c.amount, pct: c.pct, color: color
+      };
+      (Math.cos(a) >= 0 ? rights : lefts).push(item);
+
+      var isOpen = !!(state.pieOpen && state.pieOpen[c.name]);
+      legend += '<div class="pl-row' + (isOpen ? ' open' : '') + '" data-piecat="' + esc(c.name) + '">' +
+        '<span class="pl-idx">' + (i + 1) + '</span>' +
+        '<span class="pl-dot" style="background:' + color + '"></span>' +
+        '<span class="pl-name">' + c.ico + ' ' + esc(c.name) +
+          '<i class="pl-cnt">' + (cnt[c.name] || 0) + ' 笔</i></span>' +
         '<span class="pl-amt">¥' + money(c.amount) + '</span>' +
         '<span class="pl-pct">' + c.pct.toFixed(1) + '%</span>' +
+        '<span class="pl-arrow">' + (isOpen ? '▾' : '▸') + '</span>' +
         '</div>';
+
+      /* 点开了就列出这一类下面的每一笔，直接看出钱花在哪几家 */
+      if (isOpen) {
+        var recs = [], m2;
+        for (m2 = 0; m2 < s.list.length; m2++) {
+          if (s.list[m2].type === 'expense' && s.list[m2].category === c.name) recs.push(s.list[m2]);
+        }
+        recs = sortRecords(recs, false);
+        var sub = '';
+        for (m2 = 0; m2 < recs.length; m2++) {
+          sub += '<div class="pl-rec">' +
+            '<span class="pl-rec-n">' + esc(recs[m2].merchant || recs[m2].note || '（没写备注）') + '</span>' +
+            '<span class="pl-rec-d">' + esc((recs[m2].date || '').slice(5).replace('-', '/')) + '</span>' +
+            '<span class="pl-rec-a">¥' + money(recs[m2].amount) + '</span>' +
+            '</div>';
+        }
+        legend += '<div class="pl-sub">' + sub + '</div>';
+      }
     }
-    $('catPie').innerHTML = svg;
+
+    /* 同一侧的标签纵向错开，免得叠在一起 */
+    function spread(arr) {
+      arr.sort(function (p, q) { return p.y - q.y; });
+      var gap = 30, top = 14, bot = 202, t;
+      for (t = 1; t < arr.length; t++) {
+        if (arr[t].y - arr[t - 1].y < gap) arr[t].y = arr[t - 1].y + gap;
+      }
+      for (t = arr.length - 1; t >= 0; t--) {
+        var limit = bot - (arr.length - 1 - t) * gap;
+        if (arr[t].y > limit) arr[t].y = limit;
+      }
+      if (arr.length && arr[0].y < top) arr[0].y = top;
+      return arr;
+    }
+
+    function emit(arr, right) {
+      var out = '', t, it, tx = right ? 338 : 6, hx = right ? 330 : 14;
+      var anchor = right ? 'end' : 'start';
+      for (t = 0; t < arr.length; t++) {
+        it = arr[t];
+        out += '<polyline points="' + it.x1.toFixed(1) + ',' + it.y1.toFixed(1) + ' ' +
+            it.x2.toFixed(1) + ',' + it.y.toFixed(1) + ' ' + hx + ',' + it.y.toFixed(1) + '"' +
+            ' fill="none" stroke="' + it.color + '" stroke-width="1.2" stroke-linejoin="round"/>' +
+          '<text x="' + tx + '" y="' + (it.y - 2).toFixed(1) + '" text-anchor="' + anchor +
+            '" font-size="12" font-weight="600" fill="#1f2126">' + esc(it.name) + '</text>' +
+          '<text x="' + tx + '" y="' + (it.y + 12).toFixed(1) + '" text-anchor="' + anchor +
+            '" font-size="10.5" fill="#8b8f99">' + it.pct.toFixed(0) + '% · ¥' + money(it.amount) + '</text>';
+      }
+      return out;
+    }
+
+    $('catPie').setAttribute('viewBox', '0 0 344 216');
+    $('catPie').innerHTML =
+      '<g transform="rotate(-90 ' + CX + ' ' + CY + ')">' + rings + '</g>' +
+      emit(spread(lefts), false) + emit(spread(rights), true);
     $('catLegend').innerHTML = legend;
   }
 
@@ -1133,6 +1266,55 @@
     $('catPanel').classList.add('on');
     renderCatPanel();
   });
+  /* 饼图：点分类行 → 进入独立的分类明细页 */
+  $('catLegend').addEventListener('click', function (e) {
+    var row = e.target.closest('[data-piecat]');
+    if (!row) return;
+    state.detailCat = row.getAttribute('data-piecat');
+    renderCatDetail();
+    $('catDetail').classList.add('on');
+  });
+
+  $('cdBack').addEventListener('click', function () { $('catDetail').classList.remove('on'); });
+  $('cdClose').addEventListener('click', function () {
+    $('catDetail').classList.remove('on');
+    $('catPanel').classList.remove('on');
+  });
+
+  /* 渲染分类明细页 */
+  function renderCatDetail() {
+    var PIE_COLORS = ['#2f6bf6', '#ff6b4a', '#00b894', '#f5a623', '#8b5cf6', '#e0507a', '#0ea5e9', '#94a3b8'];
+    var m = state.homeMonth || thisMonth();
+    var s = stats(m);
+    var name = state.detailCat || '';
+    var c = null, i, j;
+
+    for (i = 0; i < s.cats.length; i++) {
+      if (s.cats[i].name === name) { c = s.cats[i]; break; }
+    }
+    if (!c) {
+      $('cdTitle').textContent = name;
+      $('cdSum').textContent = '';
+      $('cdList').innerHTML = empty('这一类没有记录');
+      return;
+    }
+
+    $('cdTitle').innerHTML = '<span class="cd-dot" style="background:' +
+      PIE_COLORS[i % PIE_COLORS.length] + '"></span>' + esc(name);
+    $('cdSum').textContent = monthLabel(m) + ' · 占 ' + c.pct.toFixed(1) +
+      '% · 合计 ¥' + money(c.amount);
+
+    var recs = [];
+    for (j = 0; j < s.list.length; j++) {
+      if (s.list[j].type === 'expense' && s.list[j].category === name) recs.push(s.list[j]);
+    }
+    recs = sortRecords(recs, false);
+
+    var html = '';
+    for (j = 0; j < recs.length; j++) html += rowHTML(recs[j], false);
+    $('cdList').innerHTML = html || empty('这一类没有记录');
+  }
+
   $('catClose').addEventListener('click', function () {
     $('catPanel').classList.remove('on');
   });
