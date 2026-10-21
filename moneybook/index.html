@@ -429,6 +429,30 @@
   .cd-dot{width:10px;height:10px;border-radius:50%;display:inline-block}
   .cd-list{flex:1;overflow-y:auto;margin-bottom:10px}
 
+  /* ===== 主卡改成醒目的深色渐变卡（仿参考图那种"一块大色卡"） ===== */
+  .hcard{
+    background:linear-gradient(160deg,#0ea371 0%,#07805a 100%);
+    border:0;
+    box-shadow:0 12px 26px rgba(8,122,85,.24);
+    color:#fff;
+  }
+  .hcard-k{color:rgba(255,255,255,.78)}
+  .hcard-v{color:#fff}
+  .hcard-cmp{color:rgba(255,255,255,.86)}
+  .hcard-cmp b.up{color:#ffd7cf}
+  .hcard-cmp b.down{color:#a8f2d6}
+  .cmp-ref{color:rgba(255,255,255,.72)}
+  .cmp-tag{background:rgba(255,255,255,.2);color:#eafff7}
+  .cmp-tag.good{background:rgba(255,255,255,.24);color:#eafff7}
+  .cmp-none{color:rgba(255,255,255,.75)}
+  .hcard-pace{color:rgba(255,255,255,.72)}
+  .hcard-sums{border-top-color:rgba(255,255,255,.22)}
+  .hsum{border-right-color:rgba(255,255,255,.18)}
+  .hsum .k{color:rgba(255,255,255,.72)}
+  .hsum .v{color:#fff}
+  .hsum .v.income{color:#a8f2d6}
+  .hsum .v.saving{color:#c9e0ff}
+
   /* 统计页：本月记录限高滚动，避免一页要滑很久 */
   #monthList{max-height:52vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
 </style>
