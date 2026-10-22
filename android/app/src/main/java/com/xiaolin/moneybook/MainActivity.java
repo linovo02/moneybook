@@ -199,6 +199,18 @@ public class MainActivity extends Activity {
             return NotifyListener.isConnected();
         }
 
+        /** 保活服务状态：running / error: 原因 / not_started */
+        @android.webkit.JavascriptInterface
+        public String keepAlive() {
+            return KeepAlive.stateText();
+        }
+
+        /** 手动再尝试开启一次保活（起不来时用户可以自己点） */
+        @android.webkit.JavascriptInterface
+        public void startKeepAlive() {
+            KeepAlive.start(MainActivity.this);
+        }
+
         /** 跳到系统的「通知使用权」设置页 */
         @android.webkit.JavascriptInterface
         public void openSettings() {

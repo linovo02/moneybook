@@ -12,23 +12,35 @@ import android.os.IBinder;
 /**
  * 保活服务：让通知监听在后台不被系统杀掉。
  *
- * ===== 为什么要这个东西 =====
- * 通知监听服务挂在 App 的进程里。华为/荣耀这类手机的"应用启动管理"会主动
- * 冻结或杀掉后台进程 —— 进程一死，监听就断了（表现就是"能连上，过一会儿又断"）。
- *
- * 唯一稳的办法是让系统知道"这个 App 正在干活"：开一个前台服务，并在通知栏
- * 常驻一条通知。钱迹、一木记账都是这么做的。
+ * ===== 这一版的重点：不再"静默失败" =====
+ * 上一版把所有异常都 catch 住丢掉了，结果"保活没生效"完全查不出原因。
+ * 现在把失败原因记在 lastError 里，网页上能直接看到 —— 能看见才修得动。
  *
  * ===== 隐私边界没变 =====
- * 这个服务只做一件事：往通知栏放一条"我在运行"的提示。
- * 它不读取任何东西，也不联网 —— 整个 App 依然没有 INTERNET 权限。
+ * 只往通知栏放一条提示。不读任何东西，不联网（App 依然没有 INTERNET 权限）。
  */
 public class KeepAlive extends Service {
 
     private static final String CHANNEL = "moneybook_keepalive";
     private static final int NOTI_ID = 1001;
 
-    /** 从任何地方把保活服务拉起来 */
+    /** 上一次启动失败的原因；空字符串 = 没失败过 */
+    private static volatile String lastError = "";
+
+    /** 服务是否已经跑起来（startForeground 成功） */
+    private static volatile boolean running = false;
+
+    public static boolean isRunning() { return running; }
+
+    public static String getError() { return lastError; }
+
+    /** 给网页看的一句话状态 */
+    public static String stateText() {
+        if (running) return "running";
+        if (lastError.length() > 0) return "error: " + lastError;
+        return "not_started";
+    }
+
     public static void start(Context c) {
         if (c == null) return;
         try {
@@ -38,8 +50,9 @@ public class KeepAlive extends Service {
             } else {
                 c.startService(i);
             }
-        } catch (Exception ignored) {
-            // 系统不让起就算了，不崩
+        } catch (Exception e) {
+            lastError = "startForegroundService: " + e.getClass().getSimpleName()
+                    + (e.getMessage() == null ? "" : (" " + e.getMessage()));
         }
     }
 
@@ -79,9 +92,20 @@ public class KeepAlive extends Service {
             } else {
                 startForeground(NOTI_ID, n);
             }
-        } catch (Exception ignored) {
-            // 起不来也不能让 App 崩
+            running = true;
+            lastError = "";
+        } catch (Exception e) {
+            running = false;
+            // 关键：把原因留下来，别再默默吞掉
+            lastError = "startForeground: " + e.getClass().getSimpleName()
+                    + (e.getMessage() == null ? "" : (" " + e.getMessage()));
         }
-        return START_STICKY;   // 被系统杀了以后，尽量自己回来
+        return START_STICKY;
+    }
+
+    @Override
+    public void onDestroy() {
+        running = false;
+        super.onDestroy();
     }
 }

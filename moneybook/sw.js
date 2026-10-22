@@ -8,6 +8,19 @@ var CACHE = 'jizhang-v0.3.1';
 var ASSETS = [
   './',
   './index.html',
+  './app.css',
+  './s01.js',
+  './s02.js',
+  './s03.js',
+  './s04.js',
+  './s05.js',
+  './s06.js',
+  './s07.js',
+  './s08.js',
+  './s09.js',
+  './s10.js',
+  './s11.js',
+  './s12.js',
   './manifest.webmanifest',
   './icon-192.png',
   './icon-512.png',
@@ -46,7 +59,20 @@ self.addEventListener('fetch', function (e) {
     e.respondWith(
       fetch(req).then(function (res) {
         var copy = res.clone();
-        caches.open(CACHE).then(function (c) { c.put('./index.html', copy); });
+        caches.open(CACHE).then(function (c) { c.put('./index.html',
+  './app.css',
+  './s01.js',
+  './s02.js',
+  './s03.js',
+  './s04.js',
+  './s05.js',
+  './s06.js',
+  './s07.js',
+  './s08.js',
+  './s09.js',
+  './s10.js',
+  './s11.js',
+  './s12.js', copy); });
         return res;
       })['catch'](function () {
         return caches.match('./index.html');
