@@ -468,3 +468,14 @@
 
   /* 统计页：本月记录限高滚动，避免一页要滑很久 */
   #monthList{max-height:52vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+  /* 统计页：按分类折叠的行 */
+  .grp{padding:10px 0;border-bottom:1px solid var(--line)}
+  .grp:last-child{border-bottom:0}
+  .grp-h{display:flex;align-items:center;gap:8px;cursor:pointer;border-radius:8px;padding:2px 0}
+  .grp-h:active{background:#f6f7f9}
+  .grp-i{font-size:17px;flex:0 0 auto}
+  .grp-n{flex:1;min-width:0;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .grp-a{font-weight:700;font-variant-numeric:tabular-nums}
+  .grp-p{color:var(--sub);font-size:12.5px;width:46px;text-align:right}
+  .grp-b{margin-top:6px}
+  .grp.open .grp-h{background:#f6f7f9}
