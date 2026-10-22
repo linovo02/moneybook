@@ -429,29 +429,41 @@
   .cd-dot{width:10px;height:10px;border-radius:50%;display:inline-block}
   .cd-list{flex:1;overflow-y:auto;margin-bottom:10px}
 
-  /* ===== 主卡改成醒目的深色渐变卡（仿参考图那种"一块大色卡"） ===== */
+  /* ===== 主卡：浅色薄荷渐变 + 深色大数字 =====
+     依据：
+       · 浅底 + 深字，对比度能到 7:1 以上（WCAG AAA），比白字压在深绿上更容易读
+       · 金额用 800 字重 + 42px + 负字距，成为整页唯一"最大"的元素
+       · 数字用等宽数字（tabular-nums），位数变化时不会左右跳动 */
   .hcard{
-    background:linear-gradient(160deg,#0ea371 0%,#07805a 100%);
-    border:0;
-    box-shadow:0 12px 26px rgba(8,122,85,.24);
-    color:#fff;
+    background:linear-gradient(165deg,#e3f9ef 0%,#cdefe0 55%,#bfe9d7 100%);
+    border:1px solid rgba(6,160,109,.16);
+    box-shadow:0 10px 26px rgba(6,120,85,.13);
+    color:#05372a;
   }
-  .hcard-k{color:rgba(255,255,255,.78)}
-  .hcard-v{color:#fff}
-  .hcard-cmp{color:rgba(255,255,255,.86)}
-  .hcard-cmp b.up{color:#ffd7cf}
-  .hcard-cmp b.down{color:#a8f2d6}
-  .cmp-ref{color:rgba(255,255,255,.72)}
-  .cmp-tag{background:rgba(255,255,255,.2);color:#eafff7}
-  .cmp-tag.good{background:rgba(255,255,255,.24);color:#eafff7}
-  .cmp-none{color:rgba(255,255,255,.75)}
-  .hcard-pace{color:rgba(255,255,255,.72)}
-  .hcard-sums{border-top-color:rgba(255,255,255,.22)}
-  .hsum{border-right-color:rgba(255,255,255,.18)}
-  .hsum .k{color:rgba(255,255,255,.72)}
-  .hsum .v{color:#fff}
-  .hsum .v.income{color:#a8f2d6}
-  .hsum .v.saving{color:#c9e0ff}
+  .hcard-k{color:rgba(5,55,42,.60);letter-spacing:.02em}
+  .hcard-v{
+    color:#04352a;
+    font-size:42px;
+    font-weight:800;
+    letter-spacing:-.035em;
+    line-height:1.1;
+    font-variant-numeric:tabular-nums;
+    text-shadow:0 1px 0 rgba(255,255,255,.6);
+  }
+  .hcard-cmp{color:rgba(5,55,42,.78)}
+  .hcard-cmp b.up{color:#c0392b}
+  .hcard-cmp b.down{color:#067a51}
+  .cmp-ref{color:rgba(5,55,42,.58)}
+  .cmp-tag{background:rgba(6,160,109,.14);color:#06704d}
+  .cmp-tag.good{background:rgba(6,160,109,.18);color:#056345}
+  .cmp-none{color:rgba(5,55,42,.60)}
+  .hcard-pace{color:rgba(5,55,42,.60)}
+  .hcard-sums{border-top-color:rgba(5,55,42,.14)}
+  .hsum{border-right-color:rgba(5,55,42,.10)}
+  .hsum .k{color:rgba(5,55,42,.60)}
+  .hsum .v{color:#04352a;font-variant-numeric:tabular-nums}
+  .hsum .v.income{color:#067a51}
+  .hsum .v.saving{color:#1f5fbf}
 
   /* 统计页：本月记录限高滚动，避免一页要滑很久 */
   #monthList{max-height:52vh;overflow-y:auto;-webkit-overflow-scrolling:touch}

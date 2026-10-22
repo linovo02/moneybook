@@ -53,6 +53,21 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        // 一进 App 就把保活服务拉起来（常驻一条通知）。
+        // ⚠️ 这一句必须在这里，不能只放在 NotifyListener 的回调里 ——
+        //    因为监听"连不上"的时候回调根本不执行，保活也就永远起不来（这是个死循环）。
+        KeepAlive.start(this);
+
+        // Android 13 起，常驻通知要用户允许才显示；没授权就顺手要一下
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            try {
+                if (checkSelfPermission("android.permission.POST_NOTIFICATIONS")
+                        != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                    requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 2001);
+                }
+            } catch (Exception ignored) { }
+        }
+
         web = new WebView(this);
 
         WebSettings s = web.getSettings();
