@@ -56,9 +56,11 @@ jobs:
         run: |
           set -e
           mkdir -p android/app/src/main/assets
-          cp moneybook/index.html           android/app/src/main/assets/
-          cp moneybook/manifest.webmanifest android/app/src/main/assets/
-          cp moneybook/sw.js                android/app/src/main/assets/
+          # 通配符复制：以后新增 css/js 文件不会被漏掉
+          cp moneybook/*.html moneybook/*.css moneybook/*.js moneybook/*.webmanifest \
+             android/app/src/main/assets/
+          # 两个备份文件不需要打进包里
+          rm -f android/app/src/main/assets/index.backup.html android/app/src/main/assets/index.inline.html
           mkdir -p android/app/src/main/res/mipmap-xxxhdpi
           cp moneybook/icon-192.png android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
           echo "sdk.dir=$ANDROID_HOME" > android/local.properties
