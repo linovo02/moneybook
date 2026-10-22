@@ -479,3 +479,27 @@
   .grp-p{color:var(--sub);font-size:12.5px;width:46px;text-align:right}
   .grp-b{margin-top:6px}
   .grp.open .grp-h{background:#f6f7f9}
+  /* ===== 细节统一（最后一层打磨） ===== */
+  /* 所有金额用等宽数字，位数变化时不左右抖动 */
+  .hcard-v, .hsum .v, .grp-a, .pl-amt, .dayhead-s, .amt,
+  input[type=number] { font-variant-numeric: tabular-nums; }
+
+  /* 输入框聚焦时给个清楚的边框，手机上也知道光标在哪 */
+  input:focus, textarea:focus {
+    outline: 2px solid rgba(59,108,246,.35);
+    outline-offset: 1px;
+  }
+
+  /* 点按反馈：可点的行按下去有底色，让人觉得"能点" */
+  .pl-row, .grp-h, .dayhead { transition: background .12s ease; }
+  .pl-row:active, .grp-h:active { background: #f4f5f7; }
+
+  /* 饼图列表行再紧凑一点 */
+  .pl-row { padding: 12px 2px; }
+  .pl-row:last-child { border-bottom: 0; }
+
+  /* 分组内最后的记录不要多一条分隔线 */
+  .grp-b .row:last-child { border-bottom: 0; }
+
+  /* 日期分组头不要和上一条贴太紧 */
+  .dayhead { margin-top: 6px; }
